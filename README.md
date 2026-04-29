@@ -1,24 +1,48 @@
 # Multimodal Corruptions
 
-Code for the work: **Testing Modality Reliance in Vision-Language Models via Multimodal Perturbations**
+Adversarial search against Vision-Language Models (VLMs) via simultaneous image and text corruptions using MOO.
 
-## Overview
+## 1) Setup
 
-This project investigates how Vision-Language Models (VLMs) perform when both visual and textual inputs are corrupted simultaneously. While prior work evaluates robustness to unimodal perturbations in isolation, real-world deployments (e.g., autonomous driving) expose both modalities to degradation at once. We frame object detection as a Visual Question Answering (VQA) task and apply parameterized corruptions to probe whether VLMs compensate via cross-modal grounding or collapse under joint corruption.
+Make sure conda is installed, then run:
+```bash
+bash 01_create_env.sh
+conda activate mmm
+```
 
-## Key Contributions
+> **Info**: `flash-attn` compilation takes up to 1 hour!
 
-- **Continuous-severity perturbation framework**: 12 visual corruptions (blur, noise, color, weather, occlusion, digital) and 8 textual corruptions (character, word, semantic level), each parameterized by a continuous severity `S in [0, 1]`.
-- **Two NSGA-II multi-objective optimization variants**: a disjoint paired attack (Variant A) and a simultaneous budget-constrained attack (Variant B), optimizing detection degradation vs. perceptual stealth.
-- **SWAD metric**: Stealth-Weighted Attack Degradation, a composite score balancing attack effectiveness with imperceptibility.
-- **Stratified evaluation dataset**: 750 curated samples from ILSVRC 2017, split into isolated, clustered, and heterogeneous scenes.
-
-## Repository Structure
+**Dataset** — download the ImageNet ILSVRC 2017 DET validation split and place it under `dataset/2017/ILSVRC/`. All three components are required:
 
 ```
-methodology/    Perturbation framework and optimization setup
-multimodal/     Multimodal (joint) perturbation experiments
-unimodal/       Unimodal baseline experiments
-selection/      Dataset curation and stratified sampling
-results/        Analysis and evaluation notebooks
+dataset/2017/ILSVRC/
+├── Data/DET/val/             # validation images (.JPEG)
+├── Annotations/DET/val/      # XML annotations
+└── devkit/data/meta_det.mat  # synset-to-label mapping
 ```
+
+## 2) Data Selection
+
+Run once before any experiments. Samples 100 images per group (single-class solo, single-class multi-instance, multi-class) from the dataset:
+```bash
+bash 02_data_selection.sh
+```
+
+## 3) Run Experiments
+
+Run all VLMs × all modes (multi, image, text) across N GPUs. With N > 1 jobs run simultaneously, one per GPU:
+```bash
+bash 03_run_all.sh <N_GPUS>   # e.g. bash 03_run_all.sh 2
+```
+---
+
+## VLMs
+
+The currently available VLMs are shown below, however most HF VLMs should be compatible.
+
+| Key | Model |
+|-----|-------|
+| `qwen` | Qwen3-VL-4B-Instruct |
+| `gemma` | Gemma-3-4b-it |
+| `kimi` | Kimi-VL-A3B-Instruct |
+| `hunyuan` | HunyuanVL |

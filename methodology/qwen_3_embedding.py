@@ -4,8 +4,6 @@ import random
 import time
 from transformers import AutoModel, AutoTokenizer
 
-# Disclaimer: This script was constructed with assistance from Gemini 3.1 Pro
-# for code completion anbd debugging.
 
 class Qwen3EmbeddingInstance:
 

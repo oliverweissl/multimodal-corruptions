@@ -3,10 +3,6 @@ import random
 import re
 import string
 
-# Disclaimer: This script was constructed with assistance from Gemini 3.1 Pro
-# for code completion anbd debugging.
-
-# Note, ata saliency here stands for "Lexical saliency"
 
 class TextPerturbator:
     def __init__(self, homophone_file="homophone_mapping.json", synonym_file="synonym_mapping.json"):
