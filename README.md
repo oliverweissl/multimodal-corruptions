@@ -9,8 +9,8 @@ Make sure conda is installed, then run:
 bash 01_create_env.sh
 conda activate mmm
 ```
-
-> **Info**: `flash-attn` compilation takes up to 1 hour!
+> [!NOTE]  
+> `flash-attn` compilation takes up to 1 hour!
 
 **Dataset** — download the ImageNet ILSVRC 2017 DET validation split and place it under `dataset/2017/ILSVRC/`. All three components are required:
 
