@@ -1,17 +1,23 @@
-import numpy as np
-import cv2
 from io import BytesIO
 from pathlib import Path
+from typing import Optional, Sequence
 
+import cv2
+import numpy as np
 from kernels.kernels import create_disk_kernel, create_motion_blur_kernel
 
 
 class ImagePerturbator:
-    def __init__(self, assets_root=None):
+    def __init__(self, assets_root: Optional[str | Path] = None) -> None:
         self.assets_root = Path(assets_root) if assets_root else Path(__file__).resolve().parent
 
-    def _interpolate(self, factor, values):
-        """Linear interpolation of factor ∈ [0,1] over 5 target values (discrete scales 0–4)."""
+    def _interpolate(self, factor: float, values: Sequence) -> float:
+        """Linear interpolation of factor ∈ [0,1] over 5 target values (discrete scales 0–4).
+
+        :param factor: Severity in [0.0, 1.0].
+        :param values: Sequence of 5 target values corresponding to scales 0–4.
+        :returns: Interpolated value.
+        """
         factor = max(0.0, min(1.0, factor))
         scale_anchors = [0.0, 0.25, 0.5, 0.75, 1.0]
         for i in range(len(scale_anchors) - 1):
@@ -20,23 +26,27 @@ class ImagePerturbator:
                 return values[i] + slope * (factor - scale_anchors[i])
         return values[-1]
 
-    def apply_perturbation(self, image, attack_type, scale=0.0, **kwargs):
+    def apply_perturbation(
+        self, image: np.ndarray, attack_type: str, scale: float = 0.0, **kwargs
+    ) -> np.ndarray:
         method_map = {
-            "jpeg_filter":  self.jpeg_filter,
-            "pixelate":     self.pixelate,
+            "jpeg_filter": self.jpeg_filter,
+            "pixelate": self.pixelate,
             "defocus_blur": self.defocus_blur,
-            "motion_blur":  self.motion_blur,
+            "motion_blur": self.motion_blur,
             "gaussian_noise": self.gaussian_noise,
-            "fog_filter":   self.fog_filter,
-            "snow_filter":  self.snow_filter,
-            "contrast":     self.contrast,
-            "elastic":      self.elastic,
-            "cutout":       self.cutout_filter_with_bbox,
-            "false_color":  self.false_color_filter,
-            "grayscale":    self.grayscale_filter,
+            "fog_filter": self.fog_filter,
+            "snow_filter": self.snow_filter,
+            "contrast": self.contrast,
+            "elastic": self.elastic,
+            "cutout": self.cutout_filter_with_bbox,
+            "false_color": self.false_color_filter,
+            "grayscale": self.grayscale_filter,
         }
         if attack_type not in method_map:
-            raise ValueError(f"Unknown attack type: {attack_type}. Available: {list(method_map.keys())}")
+            raise ValueError(
+                f"Unknown attack type: {attack_type}. Available: {list(method_map.keys())}"
+            )
         if attack_type == "cutout":
             bboxes = kwargs.get("bboxes")
             if bboxes is None:
@@ -44,48 +54,85 @@ class ImagePerturbator:
             return method_map[attack_type](scale, image, bboxes)
         return method_map[attack_type](scale, image)
 
-    def jpeg_filter(self, scale, image, quality_levels=(30, 18, 15, 10, 5)):
+    def jpeg_filter(
+        self, scale: float, image: np.ndarray, quality_levels: tuple[int, ...] = (30, 18, 15, 10, 5)
+    ) -> np.ndarray:
         quality = int(self._interpolate(scale, quality_levels))
         _, encoded = cv2.imencode(".jpg", image, [int(cv2.IMWRITE_JPEG_QUALITY), quality])
-        return cv2.imdecode(np.frombuffer(BytesIO(encoded.tobytes()).read(), np.uint8), cv2.IMREAD_COLOR)
+        return cv2.imdecode(
+            np.frombuffer(BytesIO(encoded.tobytes()).read(), np.uint8), cv2.IMREAD_COLOR
+        )
 
-    def pixelate(self, scale, img, downsample_levels=(0.85, 0.55, 0.35, 0.2, 0.1)):
+    def pixelate(
+        self,
+        scale: float,
+        img: np.ndarray,
+        downsample_levels: tuple[float, ...] = (0.85, 0.55, 0.35, 0.2, 0.1),
+    ) -> np.ndarray:
         downsample = self._interpolate(scale, downsample_levels)
         h, w = img.shape[:2]
         img = np.asarray(img, dtype=np.uint8)
         small_w, small_h = max(1, int(w * downsample)), max(1, int(h * downsample))
-        return cv2.resize(cv2.resize(img, (small_w, small_h), cv2.INTER_AREA), (w, h), cv2.INTER_NEAREST)
+        return cv2.resize(
+            cv2.resize(img, (small_w, small_h), cv2.INTER_AREA), (w, h), cv2.INTER_NEAREST
+        )
 
-    def defocus_blur(self, scale, image, radius_levels=(2, 5, 6, 9, 12)):
+    def defocus_blur(
+        self, scale: float, image: np.ndarray, radius_levels: tuple[int, ...] = (2, 5, 6, 9, 12)
+    ) -> np.ndarray:
         image = np.asarray(image, dtype=np.uint8)
         radius = max(1, int(self._interpolate(scale, radius_levels)))
         return cv2.filter2D(image, -1, create_disk_kernel(radius))
 
-    def motion_blur(self, scale, image, size_levels=(2, 4, 6, 10, 15), angle_levels=(5, 12, 20, 30, 45)):
+    def motion_blur(
+        self,
+        scale: float,
+        image: np.ndarray,
+        size_levels: tuple[int, ...] = (2, 4, 6, 10, 15),
+        angle_levels: tuple[int, ...] = (5, 12, 20, 30, 45),
+    ) -> np.ndarray:
         image = np.asarray(image, dtype=np.uint8)
         size = max(1, int(self._interpolate(scale, size_levels)))
         angle = self._interpolate(scale, angle_levels)
         return cv2.filter2D(image, -1, create_motion_blur_kernel(size, angle))
 
-    def gaussian_noise(self, scale, img, std_levels=(0.03, 0.06, 0.12, 0.18, 0.22)):
+    def gaussian_noise(
+        self,
+        scale: float,
+        img: np.ndarray,
+        std_levels: tuple[float, ...] = (0.03, 0.06, 0.12, 0.18, 0.22),
+    ) -> np.ndarray:
         img = np.asarray(img, dtype=np.uint8)
         std_dev = self._interpolate(scale, std_levels)
         x = img.astype(np.float32) / 255.0
         noisy = np.clip(x + np.random.normal(size=x.shape, scale=std_dev), 0, 1)
         return (noisy * 255).astype(np.uint8)
 
-    def fog_filter(self, scale, image,
-                   intensity_levels=(0.1, 0.2, 0.3, 0.45, 0.65),
-                   noise_levels=(0.05, 0.1, 0.2, 0.3, 0.45)):
+    def fog_filter(
+        self,
+        scale: float,
+        image: np.ndarray,
+        intensity_levels: tuple[float, ...] = (0.1, 0.2, 0.3, 0.45, 0.65),
+        noise_levels: tuple[float, ...] = (0.05, 0.1, 0.2, 0.3, 0.45),
+    ) -> np.ndarray:
         intensity = self._interpolate(scale, intensity_levels)
         noise_amount = self._interpolate(scale, noise_levels)
         image = np.asarray(image, dtype=np.uint8)
         fog_overlay = np.full_like(image, 255, dtype=np.uint8)
-        noise = np.random.normal(scale=noise_amount * 255, size=image.shape).clip(0, 255).astype(np.uint8)
+        noise = (
+            np.random.normal(scale=noise_amount * 255, size=image.shape)
+            .clip(0, 255)
+            .astype(np.uint8)
+        )
         fog_overlay = cv2.addWeighted(fog_overlay, 1 - noise_amount, noise, noise_amount, 0)
         return cv2.addWeighted(image, 1 - intensity, fog_overlay, intensity, 0)
 
-    def snow_filter(self, scale, image, intensity_levels=(0.15, 0.22, 0.3, 0.45, 0.6)):
+    def snow_filter(
+        self,
+        scale: float,
+        image: np.ndarray,
+        intensity_levels: tuple[float, ...] = (0.15, 0.22, 0.3, 0.45, 0.6),
+    ) -> np.ndarray:
         intensity = self._interpolate(scale, intensity_levels)
         frost_path = self.assets_root / "auxiliary_files" / "snow.png"
         if not frost_path.exists():
@@ -96,30 +143,51 @@ class ImagePerturbator:
         frost_overlay_resized = cv2.resize(frost_overlay, (image.shape[1], image.shape[0]))
         bgr = frost_overlay_resized[:, :, :3]
         alpha = frost_overlay_resized[:, :, 3] / 255.0
-        frosted = np.clip((1 - intensity * alpha[:, :, np.newaxis]) * image + intensity * bgr, 0, 255).astype(np.uint8)
+        frosted = np.clip(
+            (1 - intensity * alpha[:, :, np.newaxis]) * image + intensity * bgr, 0, 255
+        ).astype(np.uint8)
         hsv = cv2.cvtColor(frosted, cv2.COLOR_BGR2HSV)
         hsv[:, :, 1] = hsv[:, :, 1] * 0.8
         return cv2.cvtColor(hsv, cv2.COLOR_HSV2BGR)
 
-    def contrast(self, scale, img, factor_levels=(1.1, 1.2, 1.3, 1.5, 1.7)):
+    def contrast(
+        self,
+        scale: float,
+        img: np.ndarray,
+        factor_levels: tuple[float, ...] = (1.1, 1.2, 1.3, 1.5, 1.7),
+    ) -> np.ndarray:
         contrast_factor = self._interpolate(scale, factor_levels)
         mid_level = 127.5
         return np.clip(mid_level + (img - mid_level) * contrast_factor, 0, 255).astype(np.uint8)
 
-    def elastic(self, scale, img, alpha_levels=(2, 3, 5, 7, 10), sigma_levels=(0.4, 0.75, 0.9, 1.2, 1.5)):
+    def elastic(
+        self,
+        scale: float,
+        img: np.ndarray,
+        alpha_levels: tuple[int, ...] = (2, 3, 5, 7, 10),
+        sigma_levels: tuple[float, ...] = (0.4, 0.75, 0.9, 1.2, 1.5),
+    ) -> np.ndarray:
         alpha = self._interpolate(scale, alpha_levels)
         sigma = self._interpolate(scale, sigma_levels)
         dx = cv2.GaussianBlur(np.random.uniform(-1, 1, img.shape[:2]) * alpha, (0, 0), sigma)
         dy = cv2.GaussianBlur(np.random.uniform(-1, 1, img.shape[:2]) * alpha, (0, 0), sigma)
         x, y = np.meshgrid(np.arange(img.shape[1]), np.arange(img.shape[0]))
         return cv2.remap(
-            img, (x + dx).astype(np.float32), (y + dy).astype(np.float32),
-            interpolation=cv2.INTER_LINEAR, borderMode=cv2.BORDER_REFLECT,
+            img,
+            (x + dx).astype(np.float32),
+            (y + dy).astype(np.float32),
+            interpolation=cv2.INTER_LINEAR,
+            borderMode=cv2.BORDER_REFLECT,
         )
 
-    def cutout_filter_with_bbox(self, scale, image, bboxes,
-                                patch_count_levels=(1, 2, 4, 6, 10),
-                                coverage_levels=(0.05, 0.10, 0.15, 0.25, 0.33)):
+    def cutout_filter_with_bbox(
+        self,
+        scale: float,
+        image: np.ndarray,
+        bboxes: list[list[int]],
+        patch_count_levels: tuple[int, ...] = (1, 2, 4, 6, 10),
+        coverage_levels: tuple[float, ...] = (0.05, 0.10, 0.15, 0.25, 0.33),
+    ) -> np.ndarray:
         image = image.copy()
         h, w, _ = image.shape
         target_count = int(self._interpolate(scale, patch_count_levels))
@@ -157,14 +225,14 @@ class ImagePerturbator:
                     temp_mask_updates.append((i, slice(lr1, lr2), slice(lc1, lc2)))
 
             if valid_patch:
-                image[x: x + patch_h, y: y + patch_w, :] = 0
+                image[x : x + patch_h, y : y + patch_w, :] = 0
                 for idx, slc_row, slc_col in temp_mask_updates:
                     bbox_masks[idx][slc_row, slc_col] = 1
                 patches_applied += 1
 
         return image
 
-    def false_color_filter(self, scale, image):
+    def false_color_filter(self, scale: float, image: np.ndarray) -> np.ndarray:
         idx = min(int(scale * 5), 4)
         false_color = image.copy()
         if idx == 0:
@@ -189,7 +257,12 @@ class ImagePerturbator:
             false_color[:, :, 2] = (image[:, :, 2] + image[:, :, 0]) // 2
         return false_color
 
-    def grayscale_filter(self, scale, image, severity_levels=(0.1, 0.2, 0.35, 0.55, 0.85)):
+    def grayscale_filter(
+        self,
+        scale: float,
+        image: np.ndarray,
+        severity_levels: tuple[float, ...] = (0.1, 0.2, 0.35, 0.55, 0.85),
+    ) -> np.ndarray:
         severity = self._interpolate(scale, severity_levels)
         gray = cv2.cvtColor(cv2.cvtColor(image, cv2.COLOR_RGB2GRAY), cv2.COLOR_GRAY2RGB)
         return cv2.addWeighted(image, 1 - severity, gray, severity, 0)

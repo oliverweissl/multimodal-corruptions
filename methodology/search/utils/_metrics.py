@@ -1,17 +1,19 @@
-from .. import _config as _cfg
+from typing import Optional
+
+from ...config import search as _search
 from ._labels import _are_labels_compatible
 
 
-def _scale_pred_box(pred_box, target_w, target_h):
+def _scale_pred_box(pred_box: list[float], target_w: int, target_h: int) -> list[float]:
     return [
-        pred_box[0] * target_w / _cfg.QWEN_SCALE_FACTOR,
-        pred_box[1] * target_h / _cfg.QWEN_SCALE_FACTOR,
-        pred_box[2] * target_w / _cfg.QWEN_SCALE_FACTOR,
-        pred_box[3] * target_h / _cfg.QWEN_SCALE_FACTOR,
+        pred_box[0] * target_w / _search.QWEN_SCALE_FACTOR,
+        pred_box[1] * target_h / _search.QWEN_SCALE_FACTOR,
+        pred_box[2] * target_w / _search.QWEN_SCALE_FACTOR,
+        pred_box[3] * target_h / _search.QWEN_SCALE_FACTOR,
     ]
 
 
-def _calculate_iou(box_a, box_b):
+def _calculate_iou(box_a: list[float], box_b: list[float]) -> float:
     xa = max(box_a[0], box_b[0])
     ya = max(box_a[1], box_b[1])
     xb = min(box_a[2], box_b[2])
@@ -23,7 +25,13 @@ def _calculate_iou(box_a, box_b):
     return inter / float(denom) if denom > 0 else 0.0
 
 
-def compute_mean_iou(gt_dict, pred_list, ref_w, ref_h, valid_prompt_labels=None):
+def compute_mean_iou(
+    gt_dict: dict,
+    pred_list: list,
+    ref_w: int,
+    ref_h: int,
+    valid_prompt_labels: Optional[list[str]] = None,
+) -> float:
     if not gt_dict:
         return 0.0
     gt_items = []
@@ -52,9 +60,12 @@ def compute_mean_iou(gt_dict, pred_list, ref_w, ref_h, valid_prompt_labels=None)
     return sum(ious) / len(ious) if ious else 0.0
 
 
-def _is_perfect(iou, img_dist, txt_sim, iou_max, img_dist_max, txt_sim_min):
-    return (
-        iou <= iou_max
-        and img_dist < img_dist_max
-        and txt_sim > txt_sim_min
-    )
+def is_perfect(
+    iou: float,
+    img_dist: float,
+    txt_sim: float,
+    iou_max: float,
+    img_dist_max: float,
+    txt_sim_min: float,
+) -> bool:
+    return iou <= iou_max and img_dist < img_dist_max and txt_sim > txt_sim_min

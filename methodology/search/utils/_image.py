@@ -2,7 +2,7 @@ import numpy as np
 from PIL import Image
 
 
-def ensure_rgb(img):
+def ensure_rgb(img: np.ndarray | Image.Image) -> np.ndarray:
     if isinstance(img, Image.Image):
         img = np.array(img)
     if img.ndim == 3 and img.shape[2] == 3:
@@ -14,7 +14,7 @@ def ensure_rgb(img):
     return img
 
 
-def resize_image_smart(img, max_side=1080):
+def resize_image_smart(img: Image.Image, max_side: int = 1080) -> Image.Image:
     w, h = img.size
     if max(w, h) <= max_side:
         return img

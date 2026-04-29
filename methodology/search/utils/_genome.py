@@ -1,27 +1,39 @@
-from .. import _config as _cfg
+import numpy as np
 
 
-def decode_genome(x, budget_max, mode="multi"):
-    """Convert a raw decision vector into a human-readable dict."""
+def decode_genome(
+    x: np.ndarray,
+    budget_max: float,
+    mode: str,
+    image_perturbations: list[str],
+    text_perturbations: list[str],
+) -> dict:
+    """Convert a raw decision vector into a human-readable corruption dict.
+
+    :param x: Decision vector of floats in [0, 1].
+    :param budget_max: Maximum allowed budget per modality.
+    :param mode: Search mode — ``'multi'``, ``'image'``, or ``'text'``.
+    :param image_perturbations: Ordered list of image perturbation names.
+    :param text_perturbations: Ordered list of text perturbation names.
+    :returns: Dict with image_corruptions, text_corruptions, budget usage, and mode.
+    """
+    n_img = len(image_perturbations)
     if mode == "image":
-        img_scales = x
-        txt_scales = []
+        img_scales, txt_scales = x, []
     elif mode == "text":
-        img_scales = []
-        txt_scales = x
-    else:  # multi
-        img_scales = x[:_cfg.N_IMG]
-        txt_scales = x[_cfg.N_IMG:]
+        img_scales, txt_scales = [], x
+    else:
+        img_scales, txt_scales = x[:n_img], x[n_img:]
 
     return {
         "image_corruptions": {
             name: float(f"{img_scales[i]:.6f}")
-            for i, name in enumerate(_cfg.IMAGE_ATTACKS)
+            for i, name in enumerate(image_perturbations)
             if i < len(img_scales)
         },
         "text_corruptions": {
             name: float(f"{txt_scales[i]:.6f}")
-            for i, name in enumerate(_cfg.TEXT_ATTACKS)
+            for i, name in enumerate(text_perturbations)
             if i < len(txt_scales)
         },
         "img_budget_used": float(f"{sum(img_scales):.6f}"),
@@ -29,30 +41,3 @@ def decode_genome(x, budget_max, mode="multi"):
         "budget_max": budget_max,
         "mode": mode,
     }
-
-
-def _active_corruptions_str(x, mode="multi"):
-    """One-line summary of corruptions with scale > 0."""
-    if mode == "image":
-        img_scales = x
-        txt_scales = []
-    elif mode == "text":
-        img_scales = []
-        txt_scales = x
-    else:  # multi
-        img_scales = x[:_cfg.N_IMG]
-        txt_scales = x[_cfg.N_IMG:]
-
-    parts = []
-    for i, name in enumerate(_cfg.IMAGE_ATTACKS):
-        if i < len(img_scales) and img_scales[i] > 0:
-            parts.append(f"{name}={img_scales[i]:.3f}")
-    img_str = "+".join(parts) if parts else "none"
-
-    parts = []
-    for i, name in enumerate(_cfg.TEXT_ATTACKS):
-        if i < len(txt_scales) and txt_scales[i] > 0:
-            parts.append(f"{name}={txt_scales[i]:.3f}")
-    txt_str = "+".join(parts) if parts else "none"
-
-    return f"Img[{img_str}] Txt[{txt_str}]"

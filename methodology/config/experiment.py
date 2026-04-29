@@ -1,0 +1,20 @@
+SEED = 42669
+NUM_IMAGES = 100
+
+# NSGA-II
+POP_SIZE = 30
+NUM_GENERATIONS = 15
+BATCH_SIZE = 0  # 0 means all elements are taken, adjust if memory is limited.
+BUDGET_MAX = 1.0
+N_OBJ = 3  # Needs adjustment in _evaluator if changed!
+
+# Baseline filter
+BASELINE_IOU_MIN = 0.5
+
+# Early stopping
+EARLY_STOP_IOU_MAX = 0.35
+EARLY_STOP_IMG_DIST_MAX = 0.1
+EARLY_STOP_TXT_SIM_MIN = 0.70
+
+# Image preprocessing
+MAX_RESOLUTION = 1024

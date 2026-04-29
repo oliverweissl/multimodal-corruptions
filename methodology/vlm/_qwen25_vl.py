@@ -17,9 +17,10 @@ class Qwen25VLInstance(Qwen3VLInstance):
     MODEL_ID = "Qwen/Qwen2.5-VL-7B-Instruct"
     MODEL_CLASS = None  # set in __init__ via lazy import
 
-    def __init__(self, seed: int, max_new_tokens: int = 1024, device: str = "gpu",
-                 model_id: str = None):
+    def __init__(
+        self, seed: int, max_new_tokens: int = 1024, device: str = "gpu", model_id: str = None
+    ):
         from transformers import Qwen2_5_VLForConditionalGeneration
+
         self.MODEL_CLASS = Qwen2_5_VLForConditionalGeneration
-        super().__init__(seed=seed, max_new_tokens=max_new_tokens, device=device,
-                         model_id=model_id)
+        super().__init__(seed=seed, max_new_tokens=max_new_tokens, device=device, model_id=model_id)

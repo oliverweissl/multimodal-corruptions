@@ -1,13 +1,14 @@
-import torch
-import numpy as np
 import random
 import time
+
+import numpy as np
+import torch
 from transformers import AutoModel, AutoTokenizer
 
 
 class Qwen3EmbeddingInstance:
 
-    def __init__(self, seed: int, max_length: int = 8192, dvc: str = "gpu"):
+    def __init__(self, seed: int, max_length: int = 8192, dvc: str = "gpu") -> None:
         self.max_length = max_length
         self.seed = seed
         random.seed(seed)
@@ -26,29 +27,37 @@ class Qwen3EmbeddingInstance:
             dtype=torch.bfloat16,
             device_map=None if self.device.type == "cpu" else "cuda",
             trust_remote_code=True,
-            attn_implementation="flash_attention_2"
+            attn_implementation="flash_attention_2",
         )
 
         self.tokenizer = AutoTokenizer.from_pretrained(
-            "Qwen/Qwen3-Embedding-4B",
-            trust_remote_code=True
+            "Qwen/Qwen3-Embedding-4B", trust_remote_code=True
         )
 
         # Decoder-only model: left padding makes last-token pooling straightforward
         self.tokenizer.padding_side = "left"
 
     def _last_token_pool(self, last_hidden_states, attention_mask):
-        """Extracts the hidden state of the last non-padding token per sequence."""
+        """Extracts the hidden state of the last non-padding token per sequence.
+
+        :param last_hidden_states: Hidden states tensor of shape (batch, seq_len, hidden).
+        :param attention_mask: Attention mask tensor of shape (batch, seq_len).
+        :returns: Pooled hidden states of shape (batch, hidden).
+        """
         sequence_lengths = attention_mask.sum(dim=1) - 1
         batch_size = last_hidden_states.shape[0]
 
         return last_hidden_states[
-            torch.arange(batch_size, device=last_hidden_states.device),
-            sequence_lengths
+            torch.arange(batch_size, device=last_hidden_states.device), sequence_lengths
         ]
 
     def run_inference(self, text: str, instruction: str = None):
-        """Generates an L2-normalised embedding (dim 2560) for a single text input."""
+        """Generates an L2-normalised embedding (dim 2560) for a single text input.
+
+        :param text: Input text to embed.
+        :param instruction: Optional instruction prefix prepended to text.
+        :returns: Tuple of (embedding vector, token count, runtime in seconds).
+        """
         full_text = f"{instruction}{text}" if instruction else text
 
         inputs = self.tokenizer(
@@ -56,7 +65,7 @@ class Qwen3EmbeddingInstance:
             max_length=self.max_length,
             padding=True,
             truncation=True,
-            return_tensors="pt"
+            return_tensors="pt",
         )
         inputs = inputs.to(self.device)
 
@@ -76,7 +85,14 @@ class Qwen3EmbeddingInstance:
         return embedding_vector, token_count, runtime
 
     def run_batch_inference(self, texts, instructions=None):
-        """Generates L2-normalised embeddings for a batch of text inputs."""
+        """Generates L2-normalised embeddings for a batch of text inputs.
+
+        :param texts: List of input texts to embed.
+        :param instructions: Optional instruction prefix(es): a single string applied to all, a
+            list of per-text strings, or None.
+        :returns: Tuple of (list of embedding vectors, list of token counts, runtime in seconds).
+        :raises ValueError: If ``instructions`` is a list whose length differs from ``texts``.
+        """
         if instructions is None:
             full_texts = texts
         elif isinstance(instructions, str):
@@ -93,7 +109,7 @@ class Qwen3EmbeddingInstance:
             max_length=self.max_length,
             padding=True,
             truncation=True,
-            return_tensors="pt"
+            return_tensors="pt",
         )
         inputs = inputs.to(self.device)
 

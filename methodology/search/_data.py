@@ -1,25 +1,26 @@
-import os
 import json
 import logging
+import os
+
 import numpy as np
+from config.search import BASELINE_FAIL_FILENAME as _BASELINE_FAIL_FILE
+from config.search import BEST_RESULT_FILENAME as _BEST_FILE
+from config.search import BEST_RESULT_IMAGE_FILENAME as _BEST_IMAGE_FILE
+from config.search import PARETO_FILENAME as _PARETO_FILE
 from PIL import Image
 
-from . import _config as _cfg
-from .utils._image import resize_image_smart
-from .utils._genome import decode_genome
-from ._problem import AdversarialProblem
+from ._problem import PerturbationProblem
+from .utils import decode_genome, ensure_rgb, resize_image_smart
 
 logger = logging.getLogger(__name__)
 
 
-def load_sample(folder_path, max_resolution=1024):
+def load_sample(folder_path: str, max_resolution: int = 1024) -> dict:
     input_json = os.path.join(folder_path, "original.json")
     input_img = os.path.join(folder_path, "data_point.JPEG")
     if not os.path.exists(input_json) or not os.path.exists(input_img):
-        raise FileNotFoundError(
-            f"Missing original.json or data_point.JPEG in {folder_path}"
-        )
-    with open(input_json, "r") as f:
+        raise FileNotFoundError(f"Missing original.json or data_point.JPEG in {folder_path}")
+    with open(input_json) as f:
         base_data = json.load(f)
     raw_img = Image.open(input_img).convert("RGB")
     orig_w, orig_h = raw_img.size
@@ -36,23 +37,9 @@ def load_sample(folder_path, max_resolution=1024):
     }
 
 
-def get_all_sample_folders(results_dir=None):
-    """
-    Collect every valid data folder under:
-      results_dir/single/solo/NNN
-      results_dir/single/multi/NNN
-      results_dir/multi/NNN
-    Returns list of (folder_path, category_rel, folder_id).
-    """
-    if results_dir is None:
-        results_dir = _cfg.RESULTS_DIR
+def get_all_sample_folders(results_dir: str) -> list[tuple[str, str, str]]:
     sample_folders = []
-    categories = [
-        os.path.join("single", "solo"),
-        os.path.join("single", "multi"),
-        "multi",
-    ]
-    for cat_rel in categories:
+    for cat_rel in (os.path.join("single", "solo"), os.path.join("single", "multi"), "multi"):
         cat_abs = os.path.join(results_dir, cat_rel)
         if not os.path.isdir(cat_abs):
             continue
@@ -69,40 +56,51 @@ def get_all_sample_folders(results_dir=None):
     return sample_folders
 
 
-def get_output_dir(category, folder_id, mode="multi"):
-    return os.path.join(_cfg.OUTPUT_BASE_DIRS[mode], category, folder_id)
+def get_output_dir(category: str, folder_id: str, output_base: str) -> str:
+    return os.path.join(output_base, category, folder_id)
 
 
-def is_already_processed(category, folder_id, mode="multi"):
-    out = get_output_dir(category, folder_id, mode)
-    return (
-        os.path.exists(os.path.join(out, _cfg.BEST_RESULT_FILENAME))
-        or os.path.exists(os.path.join(out, _cfg.BASELINE_FAIL_FILENAME))
+def is_already_processed(category: str, folder_id: str, output_base: str) -> bool:
+    out = get_output_dir(category, folder_id, output_base)
+    return os.path.exists(os.path.join(out, _BEST_FILE)) or os.path.exists(
+        os.path.join(out, _BASELINE_FAIL_FILE)
     )
 
 
-def save_baseline_fail(category, folder_id, mode, baseline_iou, sample_data):
-    out = get_output_dir(category, folder_id, mode)
-    os.makedirs(out, exist_ok=True)
+def save_baseline_fail(output_dir: str, baseline_iou: float, sample_data: dict) -> None:
+    os.makedirs(output_dir, exist_ok=True)
     record = {
         "status": "baseline_fail",
         "baseline_iou": float(f"{baseline_iou:.5f}"),
         "data_source": {
             "folder_path": sample_data["folder_path"],
-            "folder_id": folder_id,
-            "category": category,
+            "folder_id": sample_data["folder_id"],
+            "category": sample_data["category"],
             "filename": sample_data["filename"],
         },
         "original_prompt": sample_data["original_prompt"],
         "ground_truth_bboxes": sample_data["gt_bboxes"],
     }
-    with open(os.path.join(out, _cfg.BASELINE_FAIL_FILENAME), "w") as f:
+    with open(os.path.join(output_dir, _BASELINE_FAIL_FILE), "w") as f:
         json.dump(record, f, indent=4)
 
 
-def _retrieve_cached_metrics(problem, x):
-    key = AdversarialProblem._cache_key(x)
-    cached = problem.metrics_cache.get(key)
+def _recreate_perturbed(x: np.ndarray, sample_data: dict, evaluator) -> Image.Image:
+    full_x = evaluator._expand_genome(x)
+    current_np = ensure_rgb(np.array(sample_data["clean_image_pil"])).copy()
+    bboxes = [
+        [v["xmin"], v["ymin"], v["xmax"], v["ymax"]] for v in sample_data["gt_bboxes"].values()
+    ]
+    for i, name in enumerate(evaluator.image_perturbations):
+        kwargs = {"bboxes": bboxes} if name == "cutout" else {}
+        current_np = evaluator.image_perturbator.apply_perturbation(
+            current_np, name, scale=float(full_x[i]), **kwargs
+        )
+    return Image.fromarray(ensure_rgb(current_np).astype(np.uint8))
+
+
+def _retrieve_cached_metrics(problem, x: np.ndarray) -> dict:
+    cached = problem.metrics_cache.get(PerturbationProblem._cache_key(x))
     if cached is not None:
         return cached
     logger.warning("Cache miss: re-evaluating genome (single pass).")
@@ -110,20 +108,23 @@ def _retrieve_cached_metrics(problem, x):
 
 
 def _build_best_meta(
-    pareto_idx, sample_data, genome, F_vec, cached, iou_0,
-    early_stopped, early_stop_gen, problem,
-    folder_path, folder_id, category, runtime
+    pareto_idx,
+    sample_data,
+    genome,
+    F_vec,
+    cached,
+    iou_0,
+    early_stopped,
+    early_stop_gen,
+    problem,
+    runtime,
 ):
-    iou_adv = float(F_vec[0])
-    img_dist = float(F_vec[1])
-    txt_dist = float(F_vec[2])
-    txt_sim = 1.0 - txt_dist
-
+    iou_adv, img_dist, txt_dist = float(F_vec[0]), float(F_vec[1]), float(F_vec[2])
     return {
         "data_source": {
-            "folder_path": folder_path,
-            "folder_id": folder_id,
-            "category": category,
+            "folder_path": sample_data["folder_path"],
+            "folder_id": sample_data["folder_id"],
+            "category": sample_data["category"],
             "filename": sample_data["filename"],
         },
         "pareto_index": pareto_idx,
@@ -139,14 +140,14 @@ def _build_best_meta(
             "iou": float(f"{iou_adv:.5f}"),
             "img_dist": float(f"{img_dist:.5f}"),
             "txt_dist": float(f"{txt_dist:.5f}"),
-            "txt_sim": float(f"{txt_sim:.5f}"),
+            "txt_sim": float(f"{1.0 - txt_dist:.5f}"),
         },
         "baseline_iou": float(f"{iou_0:.5f}"),
         "l2_distance": float(f"{np.linalg.norm(F_vec):.5f}"),
         "original_prompt": sample_data["original_prompt"],
         "ground_truth_bboxes": sample_data["gt_bboxes"],
         "vlm_output": {
-            "adversarial_prompt": cached["corrupt_prompt"],
+            "perturbed_prompt": cached["corrupt_prompt"],
             "raw_response": cached["vlm_response"],
             "parsed_predictions": cached["vlm_parsed"],
             "token_count": cached["token_count"],
@@ -159,63 +160,61 @@ def _build_best_meta(
 
 
 def save_all_meta(
-    result, sample_data, problem, output_dir, runtime,
-    early_stopped=False, early_stop_gen=None,
+    result, sample_data, problem, output_dir, runtime, early_stopped=False, early_stop_gen=None
 ):
     os.makedirs(output_dir, exist_ok=True)
+    evaluator = problem.evaluator
 
-    pareto_X = result.X
-    pareto_F = result.F
-    if pareto_X.ndim == 1:
-        pareto_X = pareto_X.reshape(1, -1)
-        pareto_F = pareto_F.reshape(1, -1)
-
-    folder_path = sample_data["folder_path"]
-    folder_id = sample_data["folder_id"]
-    category = sample_data["category"]
+    pareto_X = result.X if result.X.ndim > 1 else result.X.reshape(1, -1)
+    pareto_F = result.F if result.F.ndim > 1 else result.F.reshape(1, -1)
 
     iou_0 = sample_data["baseline_iou"]
 
     pareto_records = []
     for i in range(len(pareto_X)):
-        genome = decode_genome(pareto_X[i], problem.budget_max, mode=problem.mode)
         cached = _retrieve_cached_metrics(problem, pareto_X[i])
-
-        iou_adv = float(pareto_F[i, 0])
-        img_dist = float(pareto_F[i, 1])
-        txt_dist = float(pareto_F[i, 2])
-        txt_sim = 1.0 - txt_dist
-        l2_dist = float(np.linalg.norm(pareto_F[i]))
-
-        record = {
-            "index": i,
-            "genome": genome,
-            "objectives": {
-                "iou": float(f"{iou_adv:.5f}"),
-                "img_dist": float(f"{img_dist:.5f}"),
-                "txt_dist": float(f"{txt_dist:.5f}"),
-                "txt_sim": float(f"{txt_sim:.5f}"),
-            },
-            "baseline_iou": float(f"{iou_0:.5f}"),
-            "l2_distance": float(f"{l2_dist:.5f}"),
-            "vlm_output": {
-                "corrupt_prompt": cached["corrupt_prompt"],
-                "raw_response": cached["vlm_response"],
-                "parsed_predictions": cached["vlm_parsed"],
-                "token_count": cached["token_count"],
-                "raw_token_count": cached["raw_token_count"],
-                "runtime_seconds": cached["runtime_seconds"],
-            },
-            "applied_img_corruptions": cached["applied_img_corruptions"],
-            "applied_txt_corruptions": cached["applied_txt_corruptions"],
-        }
-        pareto_records.append(record)
+        genome = decode_genome(
+            pareto_X[i],
+            problem.budget_max,
+            problem.mode,
+            evaluator.image_perturbations,
+            evaluator.text_perturbations,
+        )
+        iou_adv, img_dist, txt_dist = (
+            float(pareto_F[i, 0]),
+            float(pareto_F[i, 1]),
+            float(pareto_F[i, 2]),
+        )
+        pareto_records.append(
+            {
+                "index": i,
+                "genome": genome,
+                "objectives": {
+                    "iou": float(f"{iou_adv:.5f}"),
+                    "img_dist": float(f"{img_dist:.5f}"),
+                    "txt_dist": float(f"{txt_dist:.5f}"),
+                    "txt_sim": float(f"{1.0 - txt_dist:.5f}"),
+                },
+                "baseline_iou": float(f"{iou_0:.5f}"),
+                "l2_distance": float(f"{np.linalg.norm(pareto_F[i]):.5f}"),
+                "vlm_output": {
+                    "corrupt_prompt": cached["corrupt_prompt"],
+                    "raw_response": cached["vlm_response"],
+                    "parsed_predictions": cached["vlm_parsed"],
+                    "token_count": cached["token_count"],
+                    "raw_token_count": cached["raw_token_count"],
+                    "runtime_seconds": cached["runtime_seconds"],
+                },
+                "applied_img_corruptions": cached["applied_img_corruptions"],
+                "applied_txt_corruptions": cached["applied_txt_corruptions"],
+            }
+        )
 
     pareto_output = {
         "data_source": {
-            "folder_path": folder_path,
-            "folder_id": folder_id,
-            "category": category,
+            "folder_path": sample_data["folder_path"],
+            "folder_id": sample_data["folder_id"],
+            "category": sample_data["category"],
             "filename": sample_data["filename"],
         },
         "original_prompt": sample_data["original_prompt"],
@@ -231,25 +230,47 @@ def save_all_meta(
         "solutions": pareto_records,
     }
 
-    front_path = os.path.join(output_dir, _cfg.PARETO_FILENAME)
+    front_path = os.path.join(output_dir, _PARETO_FILE)
     with open(front_path, "w") as f:
         json.dump(pareto_output, f, indent=4)
     logger.info("Pareto front (%d solutions) -> %s", len(pareto_records), front_path)
 
-    distances = np.linalg.norm(pareto_F, axis=1)
-    best_idx = int(np.argmin(distances))
-
-    best_x = pareto_X[best_idx]
-    best_f = pareto_F[best_idx]
-    best_genome = decode_genome(best_x, problem.budget_max, mode=problem.mode)
+    best_idx = int(np.argmin(np.linalg.norm(pareto_F, axis=1)))
+    best_x, best_f = pareto_X[best_idx], pareto_F[best_idx]
     best_cached = _retrieve_cached_metrics(problem, best_x)
+    best_genome = decode_genome(
+        best_x,
+        problem.budget_max,
+        problem.mode,
+        evaluator.image_perturbations,
+        evaluator.text_perturbations,
+    )
+
+    logger.info(
+        "BEST L2 (Pareto index=%d)%s  IoU=%.5f  ImgDist=%.5f  TxtSim=%.5f  L2=%.5f",
+        best_idx,
+        f"  [early-stopped at gen {early_stop_gen}]" if early_stopped else "",
+        best_f[0],
+        best_f[1],
+        1.0 - best_f[2],
+        np.linalg.norm(best_f),
+    )
 
     meta = _build_best_meta(
-        pareto_idx=best_idx, sample_data=sample_data,
-        genome=best_genome, F_vec=best_f, cached=best_cached, iou_0=iou_0,
-        early_stopped=early_stopped, early_stop_gen=early_stop_gen,
-        problem=problem, folder_path=folder_path, folder_id=folder_id,
-        category=category, runtime=runtime
+        pareto_idx=best_idx,
+        sample_data=sample_data,
+        genome=best_genome,
+        F_vec=best_f,
+        cached=best_cached,
+        iou_0=iou_0,
+        early_stopped=early_stopped,
+        early_stop_gen=early_stop_gen,
+        problem=problem,
+        runtime=runtime,
     )
-    with open(os.path.join(output_dir, _cfg.BEST_RESULT_FILENAME), "w") as f:
+    with open(os.path.join(output_dir, _BEST_FILE), "w") as f:
         json.dump(meta, f, indent=4)
+
+    _recreate_perturbed(best_x, sample_data, evaluator).save(
+        os.path.join(output_dir, _BEST_IMAGE_FILE)
+    )

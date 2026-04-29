@@ -1,9 +1,9 @@
+import difflib
 import json
 import re
-import difflib
 
 
-def extract_json_array(pred_str):
+def extract_json_array(pred_str: str) -> list:
     text = pred_str.strip()
     start = text.find("[")
     end = text.rfind("]")
@@ -15,7 +15,7 @@ def extract_json_array(pred_str):
         return []
 
 
-def extract_target_objects(prompt):
+def extract_target_objects(prompt: str) -> list[str]:
     if not prompt:
         return []
     match = re.search(r'objects "(.*?)"', prompt)
@@ -24,13 +24,13 @@ def extract_target_objects(prompt):
     return []
 
 
-def _normalize_label(text):
+def _normalize_label(text: str) -> str:
     if not isinstance(text, str):
         return ""
-    return re.sub(r"[\s\u200b\u200d]+", "", text).lower()
+    return re.sub(r"[\s​‍]+", "", text).lower()
 
 
-def _are_labels_compatible(pred_label, gt_label):
+def _are_labels_compatible(pred_label: str, gt_label: str) -> bool:
     p = _normalize_label(pred_label)
     g = _normalize_label(gt_label)
     if p == g:

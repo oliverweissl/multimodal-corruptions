@@ -1,5 +1,6 @@
 from abc import ABC, abstractmethod
 from typing import List, Tuple
+
 import PIL.Image
 
 
@@ -15,15 +16,11 @@ class VLMBase(ABC):
     """
 
     @abstractmethod
-    def run_inference(
-        self, image: PIL.Image.Image, prompt: str
-    ) -> Tuple[str, int, int, float]:
-        ...
+    def run_inference(self, image: PIL.Image.Image, prompt: str) -> Tuple[str, int, int, float]: ...
 
     @abstractmethod
     def run_batch_inference(
         self,
         images: List[PIL.Image.Image],
         prompts: List[str],
-    ) -> Tuple[List[str], List[int], List[int], float]:
-        ...
+    ) -> Tuple[List[str], List[int], List[int], float]: ...

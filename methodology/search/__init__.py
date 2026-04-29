@@ -1,20 +1,18 @@
-from ._config import OUTPUT_BASE_DIRS
-from ._evaluator import FitnessEvaluator
-from ._problem import AdversarialProblem
-from ._operators import BudgetRepair, BudgetAwareSampling, EarlyStopCallback
 from ._data import (
-    load_sample,
     get_all_sample_folders,
     get_output_dir,
     is_already_processed,
-    save_baseline_fail,
+    load_sample,
     save_all_meta,
+    save_baseline_fail,
 )
+from ._evaluator import FitnessEvaluator
+from ._operators import BudgetAwareSampling, BudgetRepair, EarlyStopCallback
+from ._problem import PerturbationProblem
 
 __all__ = [
-    "OUTPUT_BASE_DIRS",
     "FitnessEvaluator",
-    "AdversarialProblem",
+    "PerturbationProblem",
     "BudgetRepair",
     "BudgetAwareSampling",
     "EarlyStopCallback",

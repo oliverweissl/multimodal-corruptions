@@ -11,5 +11,5 @@ from ._hf_vlm import HuggingFaceVLM
 
 
 class HunyuanVLInstance(HuggingFaceVLM):
-    MODEL_ID = "Tencent-Hunyuan/HunyuanVL"   # ← verify on HuggingFace
+    MODEL_ID = "Tencent-Hunyuan/HunyuanVL"  # ← verify on HuggingFace
     TRUST_REMOTE_CODE = True

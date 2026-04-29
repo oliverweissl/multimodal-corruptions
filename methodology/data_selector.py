@@ -1,26 +1,26 @@
+import json
 import os
 import random
-import json
+import shutil
 import xml.etree.ElementTree as ET
+
+import numpy as np
+import scipy.io
+import torch
+from config.experiment import NUM_IMAGES, SEED
+from config.paths import (
+    ANNOTATIONS_PATH,
+    DATASET_PATH,
+    MAT_FILE_PATH,
+)
+from config.paths import RESULTS_DIR as RESULTS_BASE_DIR
 from PIL import Image
 from tqdm import tqdm
-import shutil
-import numpy as np
-import torch
-import scipy.io
-
-NUM_IMAGES = 100
-RESULTS_BASE_DIR = "results/selection"
-SEED = 42669
-
-DATASET_PATH = "dataset/2017/ILSVRC/Data/DET/val"
-ANNOTATIONS_PATH = "dataset/2017/ILSVRC/Annotations/DET/val"
-MAT_FILE_PATH = "dataset/2017/ILSVRC/devkit/data/meta_det.mat"
 
 
 def load_synset_to_label(mat_file_path):
     meta = scipy.io.loadmat(mat_file_path)
-    synsets = meta['synsets']
+    synsets = meta["synsets"]
     synset_to_label = {}
     for entry in synsets[0]:
         synset = entry[1][0]
@@ -35,20 +35,20 @@ def parse_annotation(xml_file, synset_to_label):
     ground_truth = {}
     unique_labels = set()
 
-    objects = root.findall('object')
+    objects = root.findall("object")
     instance_count = len(objects)
 
     for obj in objects:
-        synset = obj.find('name').text
+        synset = obj.find("name").text
         label = synset_to_label.get(synset, synset)
         unique_labels.add(label)
 
-        bndbox = obj.find('bndbox')
+        bndbox = obj.find("bndbox")
         box = {
-            "xmin": int(bndbox.find('xmin').text),
-            "ymin": int(bndbox.find('ymin').text),
-            "xmax": int(bndbox.find('xmax').text),
-            "ymax": int(bndbox.find('ymax').text),
+            "xmin": int(bndbox.find("xmin").text),
+            "ymin": int(bndbox.find("ymin").text),
+            "xmax": int(bndbox.find("xmax").text),
+            "ymax": int(bndbox.find("ymax").text),
         }
 
         key = label
@@ -69,7 +69,14 @@ class DataSelector:
     the same subset; per-VLM baseline IoU is computed at search time.
     """
 
-    def __init__(self, dataset_path, annotations_path, mat_file_path, seed, results_dir):
+    def __init__(
+        self,
+        dataset_path: str = DATASET_PATH,
+        annotations_path: str = ANNOTATIONS_PATH,
+        mat_file_path: str = MAT_FILE_PATH,
+        seed: int = SEED,
+        results_dir: str = RESULTS_BASE_DIR,
+    ):
         self.dataset_path = dataset_path
         self.annotations_path = annotations_path
         self.seed = seed
@@ -84,7 +91,7 @@ class DataSelector:
 
     def scan_and_sort_candidates(self):
         print("Scanning dataset annotations...")
-        xml_files = sorted([f for f in os.listdir(self.annotations_path) if f.endswith('.xml')])
+        xml_files = sorted([f for f in os.listdir(self.annotations_path) if f.endswith(".xml")])
 
         single_class_multi_instance = []
         single_class_solo_instance = []
@@ -92,7 +99,9 @@ class DataSelector:
 
         for xml_file in tqdm(xml_files, desc="Parsing XMLs"):
             xml_path = os.path.join(self.annotations_path, xml_file)
-            gt_data, unique_labels, instance_count = parse_annotation(xml_path, self.synset_to_label)
+            gt_data, unique_labels, instance_count = parse_annotation(
+                xml_path, self.synset_to_label
+            )
 
             image_file = os.path.splitext(xml_file)[0] + ".JPEG"
             candidate = {"xml_file": xml_file, "image_file": image_file, "gt": gt_data}
@@ -129,7 +138,7 @@ class DataSelector:
             result_file = os.path.join(category_dir, folder_name, "original.json")
             if os.path.exists(result_file):
                 try:
-                    with open(result_file, 'r') as f:
+                    with open(result_file, "r") as f:
                         data = json.load(f)
                     if "image" in data:
                         completed_filenames.add(data["image"])
@@ -144,26 +153,26 @@ class DataSelector:
         dir_path = os.path.join(self.results_dir, category, str(index))
         os.makedirs(dir_path, exist_ok=True)
 
-        image_path = os.path.join(self.dataset_path, cand['image_file'])
+        image_path = os.path.join(self.dataset_path, cand["image_file"])
         with Image.open(image_path) as img:
             orig_w, orig_h = img.size
 
-        object_names = set(k.split('_')[0] for k in cand['gt'].keys())
-        objects_str = ', '.join(sorted(object_names))
+        object_names = set(k.split("_")[0] for k in cand["gt"].keys())
+        objects_str = ", ".join(sorted(object_names))
         prompt = (
             f'Identify the objects "{objects_str}" in the image '
-            f'and return their bounding boxes in JSON format:'
+            f"and return their bounding boxes in JSON format:"
         )
 
         data = {
-            "image": cand['image_file'],
+            "image": cand["image_file"],
             "prompt": prompt,
             "original_dims": [orig_w, orig_h],
             "seed": str(self.seed),
-            "ground_truth": cand['gt'],
+            "ground_truth": cand["gt"],
         }
 
-        with open(os.path.join(dir_path, "original.json"), 'w') as f:
+        with open(os.path.join(dir_path, "original.json"), "w") as f:
             json.dump(data, f, indent=4)
 
         try:
@@ -188,9 +197,9 @@ class DataSelector:
         for cand in tqdm(candidates, desc=group_name):
             if saved >= needed:
                 break
-            if cand['image_file'] in completed_filenames:
+            if cand["image_file"] in completed_filenames:
                 continue
-            image_path = os.path.join(self.dataset_path, cand['image_file'])
+            image_path = os.path.join(self.dataset_path, cand["image_file"])
             if not os.path.exists(image_path):
                 continue
             self.save_selection(cand, group_name, next_save_index)
@@ -198,15 +207,19 @@ class DataSelector:
             saved += 1
 
         if saved < needed:
-            print(f"Warning: exhausted candidates for {group_name}. "
-                  f"Found {current_count + saved}/{target_size}.")
+            print(
+                f"Warning: exhausted candidates for {group_name}. "
+                f"Found {current_count + saved}/{target_size}."
+            )
 
     def run_selection(self):
-        solo_candidates, multi_inst_candidates, multi_class_candidates = self.scan_and_sort_candidates()
+        solo_candidates, multi_inst_candidates, multi_class_candidates = (
+            self.scan_and_sort_candidates()
+        )
 
-        self.process_group(solo_candidates,        "single/solo",  target_size=NUM_IMAGES)
-        self.process_group(multi_inst_candidates,  "single/multi", target_size=NUM_IMAGES)
-        self.process_group(multi_class_candidates, "multi",        target_size=NUM_IMAGES)
+        self.process_group(solo_candidates, "single/solo", target_size=NUM_IMAGES)
+        self.process_group(multi_inst_candidates, "single/multi", target_size=NUM_IMAGES)
+        self.process_group(multi_class_candidates, "multi", target_size=NUM_IMAGES)
 
         print(f"\nSelection complete. Results saved in: {os.path.abspath(self.results_dir)}")
 

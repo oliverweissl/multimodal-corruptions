@@ -14,13 +14,13 @@ standard HuggingFace VLM pattern:
     _prepare_batch(images, prompts) - tokenise a batch     (default: processor(texts, images))
 """
 
+import logging
 import random
 import time
-import logging
 
 import numpy as np
 import torch
-from transformers import AutoProcessor, AutoModelForCausalLM
+from transformers import AutoModelForCausalLM, AutoProcessor
 
 from ._base import VLMBase
 
@@ -28,10 +28,10 @@ logger = logging.getLogger(__name__)
 
 
 class HuggingFaceVLM(VLMBase):
-    MODEL_ID: str = None             # required — set in subclass or pass model_id to __init__
-    MODEL_CLASS = None               # None → AutoModelForCausalLM
+    MODEL_ID: str = None  # required — set in subclass or pass model_id to __init__
+    MODEL_CLASS = None  # None → AutoModelForCausalLM
     DTYPE = torch.bfloat16
-    ATTN_IMPL: str = "flash_attention_2"   # set None to disable
+    ATTN_IMPL: str = "flash_attention_2"  # set None to disable
     TRUST_REMOTE_CODE: bool = False
 
     def __init__(
@@ -78,31 +78,34 @@ class HuggingFaceVLM(VLMBase):
     # ------------------------------------------------------------------
 
     def _build_message(self, image, prompt: str) -> list:
-        """
-        Build a single-turn chat message.
+        """Build a single-turn chat message.
 
-        Default format uses an image placeholder ({"type": "image"}) and
-        passes the actual PIL image to the processor separately.  Subclasses
-        that embed the image inside the message dict (e.g. Qwen) override this.
-        """
-        return [{
-            "role": "user",
-            "content": [
-                {"type": "image"},
-                {"type": "text", "text": prompt},
-            ],
-        }]
+        Default format uses an image placeholder and passes the PIL image to
+        the processor separately. Subclasses that embed the image inside the
+        message dict (e.g. Qwen) override this.
 
-    def _prepare_single(self, image, prompt: str) -> "BatchEncoding":
+        :param image: PIL image for the user turn.
+        :param prompt: Text prompt for the user turn.
+        :returns: Single-element list containing the user message dict.
+        """
+        return [
+            {
+                "role": "user",
+                "content": [
+                    {"type": "image"},
+                    {"type": "text", "text": prompt},
+                ],
+            }
+        ]
+
+    def _prepare_single(self, image, prompt: str):
         messages = self._build_message(image, prompt)
         text = self.processor.apply_chat_template(
             messages, tokenize=False, add_generation_prompt=True
         )
-        return self.processor(
-            text=[text], images=[image], padding=True, return_tensors="pt"
-        )
+        return self.processor(text=[text], images=[image], padding=True, return_tensors="pt")
 
-    def _prepare_batch(self, images, prompts) -> "BatchEncoding":
+    def _prepare_batch(self, images, prompts):
         self.processor.tokenizer.padding_side = "left"
         texts = [
             self.processor.apply_chat_template(
@@ -112,27 +115,20 @@ class HuggingFaceVLM(VLMBase):
             )
             for img, prompt in zip(images, prompts)
         ]
-        return self.processor(
-            text=texts, images=images, padding=True, return_tensors="pt"
-        )
+        return self.processor(text=texts, images=images, padding=True, return_tensors="pt")
 
     # ------------------------------------------------------------------
     # Shared decode helper
     # ------------------------------------------------------------------
 
     def _decode_outputs(self, inputs, generated_ids):
-        trimmed = [
-            out[len(inp):]
-            for inp, out in zip(inputs.input_ids, generated_ids)
-        ]
+        trimmed = [out[len(inp) :] for inp, out in zip(inputs.input_ids, generated_ids)]
         raw_counts = [len(t) for t in trimmed]
         texts = self.processor.batch_decode(
             trimmed, skip_special_tokens=True, clean_up_tokenization_spaces=False
         )
         tokenizer = getattr(self.processor, "tokenizer", self.processor)
-        visible_counts = [
-            len(tokenizer.encode(t, add_special_tokens=False)) for t in texts
-        ]
+        visible_counts = [len(tokenizer.encode(t, add_special_tokens=False)) for t in texts]
         return texts, visible_counts, raw_counts
 
     # ------------------------------------------------------------------
