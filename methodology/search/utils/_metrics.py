@@ -1,6 +1,6 @@
 from typing import Optional
 
-from ...config import search as _search
+from config import search as _search
 from ._labels import _are_labels_compatible
 
 

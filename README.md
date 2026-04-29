@@ -28,6 +28,20 @@ Run once before any experiments. Samples 100 images per group (single-class solo
 bash 02_data_selection.sh
 ```
 
+## 2.1) Generate Text Perturbation Mappings (Optional)
+
+Generates `homophone_mapping.json` and `synonym_mapping.json` used by text perturbations. Requires [Ollama](https://ollama.com) running locally with a capable model pulled. Without these files the homophone and synonym perturbations are silently skipped.
+
+```bash
+bash 02_1_generate_mappings.sh                         # default: gpt-oss:120b
+bash 02_1_generate_mappings.sh --model llama3:70b      # override model
+```
+
+Alternatively generate the files with any LLM of your choice — the expected format is:
+```json
+{"label": ["variant1", "variant2", ...], ...}
+```
+
 ## 3) Run Experiments
 
 Run all VLMs × all modes (multi, image, text) across N GPUs. With N > 1 jobs run simultaneously, one per GPU:

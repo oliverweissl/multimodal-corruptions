@@ -8,7 +8,7 @@ from qwen_3_embedding import Qwen3EmbeddingInstance
 from text_perturbator import TextPerturbator
 from vlm import VLMBase
 
-from ..config import search as _search
+from config import search as _search
 from .utils import (
     compute_mean_iou,
     ensure_rgb,
@@ -61,8 +61,8 @@ class FitnessEvaluator:
         *,
         vlm: VLMBase,
         seed: int,
-        image_perturbations: list[str] = _search.IMAGE_PERTUBATIONS,
-        text_perturbations: list[str] = _search.TEXT_PERTUBATIONS,
+        image_perturbations: list[str] = _search.IMAGE_PERTURBATIONS,
+        text_perturbations: list[str] = _search.TEXT_PERTURBATIONS,
         mode: str = "multi",
     ) -> None:
         logger.info("Initialising FitnessEvaluator: loading models ...")

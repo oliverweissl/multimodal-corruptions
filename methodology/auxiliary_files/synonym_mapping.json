@@ -1,0 +1,881 @@
+{
+    "accordion": [
+        "concertina",
+        "button accordion",
+        "piano accordion",
+        "diatonic accordion"
+    ],
+    "antelope": [
+        "gazelle",
+        "pronghorn",
+        "springbok",
+        "oryx",
+        "impala"
+    ],
+    "apple": [
+        "red apple",
+        "green apple",
+        "malus domestica",
+        "cider apple",
+        "fruit"
+    ],
+    "armadillo": [
+        "nine-banded armadillo",
+        "three-banded armadillo",
+        "armored mammal",
+        "rolled armadillo"
+    ],
+    "artichoke": [
+        "globe artichoke",
+        "cynara cardunculus",
+        "artichoke heart",
+        "cooked artichoke",
+        "vegetable"
+    ],
+    "axe": [
+        "hatchet",
+        "hand axe",
+        "fire axe",
+        "double\u2011bit axe",
+        "woodcutter's axe"
+    ],
+    "baby bed": [
+        "crib",
+        "cot",
+        "infant bed",
+        "bassinet",
+        "portable crib"
+    ],
+    "backpack": [
+        "rucksack",
+        "knapsack",
+        "daypack",
+        "hiking pack",
+        "travel bag"
+    ],
+    "bagel": [
+        "plain bagel",
+        "sesame bagel",
+        "everything bagel",
+        "chewy bagel",
+        "circular bread"
+    ],
+    "banana": [
+        "ripe banana",
+        "green banana",
+        "plantain",
+        "banana bunch",
+        "banana fruit"
+    ],
+    "band aid": [
+        "adhesive bandage",
+        "plaster",
+        "medical tape",
+        "first aid strip",
+        "sterile bandage"
+    ],
+    "baseball": [
+        "hardball",
+        "baseball ball",
+        "leather baseball",
+        "mlb baseball",
+        "sport ball"
+    ],
+    "basketball": [
+        "orange basketball",
+        "indoor basketball",
+        "nba basketball",
+        "spalding basketball",
+        "basketball ball"
+    ],
+    "beaker": [
+        "laboratory beaker",
+        "glass beaker",
+        "chemistry beaker",
+        "graduated beaker",
+        "mixing beaker"
+    ],
+    "bear": [
+        "brown bear",
+        "black bear",
+        "polar bear",
+        "grizzly",
+        "ursine animal"
+    ],
+    "bench": [
+        "park bench",
+        "garden bench",
+        "wooden bench",
+        "metal bench",
+        "seat bench"
+    ],
+    "bicycle": [
+        "bike",
+        "road bike",
+        "mountain bike",
+        "folding bike",
+        "bicycle frame"
+    ],
+    "bird": [
+        "songbird",
+        "raptor",
+        "waterfowl",
+        "fowl",
+        "avian species"
+    ],
+    "bookshelf": [
+        "bookcase",
+        "library shelf",
+        "wall shelf",
+        "standing bookshelf",
+        "wooden bookshelf"
+    ],
+    "bow tie": [
+        "formal bow tie",
+        "silk bow tie",
+        "black bow tie",
+        "men's bow tie",
+        "necktie bow"
+    ],
+    "bowl": [
+        "soup bowl",
+        "cereal bowl",
+        "mixing bowl",
+        "salad bowl"
+    ],
+    "brassiere": [
+        "bra",
+        "lingerie",
+        "underwire bra",
+        "sports bra"
+    ],
+    "burrito": [
+        "wrap",
+        "taco roll",
+        "Mexican burrito",
+        "filled tortilla"
+    ],
+    "bus": [
+        "coach",
+        "school bus",
+        "city bus",
+        "shuttle",
+        "minibus"
+    ],
+    "butterfly": [
+        "lepidoptera",
+        "monarch",
+        "swallowtail",
+        "moth"
+    ],
+    "camel": [
+        "dromedary",
+        "bactrian",
+        "desert camel",
+        "humpback camel"
+    ],
+    "car": [
+        "automobile",
+        "sedan",
+        "SUV",
+        "vehicle",
+        "compact"
+    ],
+    "cart": [
+        "trolley",
+        "handcart",
+        "shopping cart",
+        "golf cart",
+        "wagon"
+    ],
+    "cello": [
+        "violoncello",
+        "cello",
+        "electric cello",
+        "string instrument"
+    ],
+    "chair": [
+        "seat",
+        "armchair",
+        "stool",
+        "rocking chair",
+        "recliner"
+    ],
+    "cocktail shaker": [
+        "shaker",
+        "mixing shaker",
+        "bartender shaker",
+        "Boston shaker"
+    ],
+    "computer keyboard": [
+        "keyboard",
+        "QWERTY keyboard",
+        "mechanical keyboard",
+        "laptop keyboard"
+    ],
+    "computer mouse": [
+        "mouse",
+        "wireless mouse",
+        "optical mouse",
+        "gaming mouse"
+    ],
+    "corkscrew": [
+        "wine opener",
+        "bottle opener",
+        "screw extractor",
+        "cork puller"
+    ],
+    "cream": [
+        "dairy cream",
+        "whipping cream",
+        "sour cream",
+        "cream sauce"
+    ],
+    "croquet ball": [
+        "croquet ball",
+        "white ball",
+        "plastic ball",
+        "croquet sphere"
+    ],
+    "crutch": [
+        "walking crutch",
+        "medical crutch",
+        "axillary crutch",
+        "forearm crutch"
+    ],
+    "cucumber": [
+        "cucumber",
+        "pickling cucumber",
+        "seedless cucumber",
+        "gherkin"
+    ],
+    "cup or mug": [
+        "cup",
+        "mug",
+        "tea cup",
+        "coffee mug",
+        "ceramic cup"
+    ],
+    "diaper": [
+        "nappy",
+        "baby diaper",
+        "disposable diaper",
+        "cloth diaper"
+    ],
+    "digital clock": [
+        "alarm clock",
+        "LED clock",
+        "wall clock",
+        "electronic clock",
+        "time display"
+    ],
+    "dishwasher": [
+        "kitchen appliance",
+        "dish washer",
+        "dish cleaning machine",
+        "washing machine (kitchen)",
+        "appliance"
+    ],
+    "dog": [
+        "puppy",
+        "canine",
+        "hound",
+        "pet dog",
+        "doggo"
+    ],
+    "domestic cat": [
+        "house cat",
+        "kitty",
+        "feline",
+        "pet cat",
+        "tabby"
+    ],
+    "dragonfly": [
+        "damselfly",
+        "dragon fly",
+        "odonata",
+        "insect",
+        "water dragonfly"
+    ],
+    "drum": [
+        "percussion instrument",
+        "snare drum",
+        "bass drum",
+        "drum kit",
+        "tom-tom"
+    ],
+    "dumbbell": [
+        "hand weight",
+        "free weight",
+        "gym equipment",
+        "strength training weight",
+        "weight"
+    ],
+    "electric fan": [
+        "ceiling fan",
+        "table fan",
+        "desk fan",
+        "oscillating fan",
+        "portable fan"
+    ],
+    "elephant": [
+        "pachyderm",
+        "African elephant",
+        "Asian elephant",
+        "large mammal",
+        "herbivore"
+    ],
+    "face powder": [
+        "makeup powder",
+        "compact powder",
+        "setting powder",
+        "beauty powder",
+        "cosmetic powder"
+    ],
+    "filing cabinet": [
+        "drawer cabinet",
+        "office cabinet",
+        "file drawer",
+        "records cabinet",
+        "document storage"
+    ],
+    "flower pot": [
+        "plant pot",
+        "garden pot",
+        "ceramic pot",
+        "container plant",
+        "flower vase"
+    ],
+    "flute": [
+        "woodwind instrument",
+        "silver flute",
+        "concert flute",
+        "piccolo",
+        "musical instrument"
+    ],
+    "fox": [
+        "red fox",
+        "vulpine",
+        "wild canid",
+        "forest fox",
+        "fox animal"
+    ],
+    "frog": [
+        "toad",
+        "amphibian",
+        "tree frog",
+        "pond frog",
+        "water frog"
+    ],
+    "frying pan": [
+        "skillet",
+        "pan",
+        "cookware",
+        "saut\u00e9 pan",
+        "stir-fry pan"
+    ],
+    "giant panda": [
+        "panda bear",
+        "Ailuropoda melanoleuca",
+        "Chinese panda",
+        "bamboo bear",
+        "panda animal"
+    ],
+    "goldfish": [
+        "carp",
+        "ornamental fish",
+        "aquarium fish",
+        "freshwater fish",
+        "golden fish"
+    ],
+    "golf ball": [
+        "golf sphere",
+        "white ball",
+        "dimpled ball",
+        "sport ball",
+        "golf tee ball"
+    ],
+    "golfcart": [
+        "golf buggy",
+        "golf trolley",
+        "caddie cart",
+        "electric golf cart",
+        "golf vehicle"
+    ],
+    "guitar": [
+        "acoustic guitar",
+        "electric guitar",
+        "classical guitar",
+        "bass guitar"
+    ],
+    "hair dryer": [
+        "blow dryer",
+        "handheld dryer",
+        "hair styling tool",
+        "dryer"
+    ],
+    "hamburger": [
+        "burger",
+        "cheeseburger",
+        "fast food burger",
+        "sandwich"
+    ],
+    "hammer": [
+        "claw hammer",
+        "sledgehammer",
+        "ball peen hammer",
+        "mallet"
+    ],
+    "harmonica": [
+        "mouth organ",
+        "blues harp",
+        "chromatic harmonica",
+        "diatonic harmonica"
+    ],
+    "hat with a wide brim": [
+        "wide-brim hat",
+        "sun hat",
+        "floppy hat",
+        "panama hat"
+    ],
+    "helmet": [
+        "hard hat",
+        "bike helmet",
+        "motorcycle helmet",
+        "protective headgear"
+    ],
+    "hippopotamus": [
+        "hippo",
+        "river horse",
+        "African hippo",
+        "semi-aquatic mammal"
+    ],
+    "horse": [
+        "stallion",
+        "mare",
+        "pony",
+        "draft horse"
+    ],
+    "hotdog": [
+        "frankfurter",
+        "sausage sandwich",
+        "wiener",
+        "street food"
+    ],
+    "iPod": [
+        "MP3 player",
+        "Apple iPod",
+        "digital music player",
+        "portable media player"
+    ],
+    "isopod": [
+        "pillbug",
+        "woodlouse",
+        "roly-poly",
+        "terrestrial isopod"
+    ],
+    "koala bear": [
+        "koala",
+        "Australian marsupial",
+        "tree dweller",
+        "eucalyptus eater"
+    ],
+    "lamp": [
+        "table lamp",
+        "floor lamp",
+        "desk lamp",
+        "illuminator"
+    ],
+    "laptop": [
+        "notebook computer",
+        "portable computer",
+        "MacBook",
+        "ultrabook"
+    ],
+    "lemon": [
+        "citrus fruit",
+        "yellow lemon",
+        "sour fruit",
+        "lemon wedge"
+    ],
+    "lizard": [
+        "gecko",
+        "iguana",
+        "monitor lizard",
+        "reptile"
+    ],
+    "microphone": [
+        "mic",
+        "studio microphone",
+        "handheld mic",
+        "condenser microphone"
+    ],
+    "miniskirt": [
+        "short skirt",
+        "mini skirt",
+        "pleated mini",
+        "fashion skirt"
+    ],
+    "monkey": [
+        "chimpanzee",
+        "baboon",
+        "primate",
+        "capuchin"
+    ],
+    "motorcycle": [
+        "bike",
+        "motorbike",
+        "scooter",
+        "chopper",
+        "cruiser"
+    ],
+    "mushroom": [
+        "fungus",
+        "toadstool",
+        "shiitake",
+        "portobello",
+        "button mushroom"
+    ],
+    "nail": [
+        "fastener",
+        "spike",
+        "tack",
+        "brad",
+        "metal nail"
+    ],
+    "neck brace": [
+        "cervical collar",
+        "neck support",
+        "orthopedic brace",
+        "neck splint",
+        "stiff neck brace"
+    ],
+    "oboe": [
+        "double reed instrument",
+        "woodwind",
+        "concert oboe",
+        "French oboe",
+        "band oboe"
+    ],
+    "pencil box": [
+        "pen case",
+        "stationery holder",
+        "drafting case",
+        "pencil case",
+        "art supply box"
+    ],
+    "perfume": [
+        "fragrance",
+        "cologne",
+        "scent",
+        "eau de toilette",
+        "aroma"
+    ],
+    "person": [
+        "human",
+        "individual",
+        "man",
+        "woman",
+        "adult"
+    ],
+    "piano": [
+        "grand piano",
+        "upright piano",
+        "keyboard",
+        "digital piano",
+        "baby grand"
+    ],
+    "pineapple": [
+        "tropical fruit",
+        "ananas",
+        "pineapple fruit",
+        "crown pineapple",
+        "fresh pineapple"
+    ],
+    "ping-pong ball": [
+        "table tennis ball",
+        "ping pong ball",
+        "white ball",
+        "plastic ball",
+        "sport ball"
+    ],
+    "pizza": [
+        "pie",
+        "margherita",
+        "pepperoni pizza",
+        "deep dish",
+        "slice"
+    ],
+    "plastic bag": [
+        "polyethylene bag",
+        "shopping bag",
+        "carrier bag",
+        "zipper bag",
+        "trash bag"
+    ],
+    "pomegranate": [
+        "seeded fruit",
+        "punica granatum",
+        "ruby fruit",
+        "pome fruit",
+        "aril"
+    ],
+    "porcupine": [
+        "spiny mammal",
+        "quill animal",
+        "hedgehog relative",
+        "rodent",
+        "forest porcupine"
+    ],
+    "printer": [
+        "laser printer",
+        "inkjet printer",
+        "desktop printer",
+        "multifunction printer",
+        "office printer"
+    ],
+    "purse": [
+        "handbag",
+        "wallet",
+        "clutch",
+        "tote",
+        "shopping bag"
+    ],
+    "rabbit": [
+        "bunny",
+        "hare",
+        "cottontail",
+        "lagomorph",
+        "wild rabbit"
+    ],
+    "racket": [
+        "tennis racket",
+        "badminton racket",
+        "racquet",
+        "sports racket",
+        "pickleball paddle"
+    ],
+    "ray": [
+        "manta ray",
+        "stingray",
+        "marine ray",
+        "flatfish",
+        "aquatic ray"
+    ],
+    "red panda": [
+        "lesser panda",
+        "firefox",
+        "ailurus fulgens",
+        "red bear cat"
+    ],
+    "refrigerator": [
+        "fridge",
+        "icebox",
+        "cooler",
+        "cold storage"
+    ],
+    "rubber eraser": [
+        "pencil eraser",
+        "eraser",
+        "rubber",
+        "rubber eraser block"
+    ],
+    "ruler": [
+        "measuring ruler",
+        "scale",
+        "yardstick",
+        "measuring stick"
+    ],
+    "salt or pepper shaker": [
+        "seasoning shaker",
+        "salt shaker",
+        "pepper shaker",
+        "condiment dispenser"
+    ],
+    "saxophone": [
+        "alto sax",
+        "tenor sax",
+        "sax",
+        "brass reed instrument"
+    ],
+    "screwdriver": [
+        "phillips driver",
+        "flathead driver",
+        "tool",
+        "screwdriver bit"
+    ],
+    "sheep": [
+        "ewe",
+        "ram",
+        "lamb",
+        "ovine"
+    ],
+    "skunk": [
+        "stink badger",
+        "polecat",
+        "spotted skunk",
+        "mephitis mephitis"
+    ],
+    "snake": [
+        "serpent",
+        "viper",
+        "python",
+        "boa"
+    ],
+    "soap dispenser": [
+        "soap pump",
+        "liquid soap dispenser",
+        "soap dispenser bottle",
+        "soap dispenser unit"
+    ],
+    "soccer ball": [
+        "football",
+        "association football ball",
+        "soccer sphere",
+        "match ball"
+    ],
+    "sofa": [
+        "couch",
+        "settee",
+        "loveseat",
+        "divan"
+    ],
+    "spatula": [
+        "turner",
+        "flipper",
+        "kitchen spatula",
+        "bowl scraper"
+    ],
+    "starfish": [
+        "sea star",
+        "asteroid",
+        "echinoderm",
+        "starfish marine"
+    ],
+    "stove": [
+        "cooking stove",
+        "range",
+        "cooktop",
+        "gas stove"
+    ],
+    "strawberry": [
+        "berry",
+        "fragaria",
+        "fresh strawberry",
+        "garden strawberry"
+    ],
+    "sunglasses": [
+        "shades",
+        "sun glasses",
+        "aviator glasses",
+        "polarized sunglasses"
+    ],
+    "swine": [
+        "pig",
+        "hog",
+        "boar",
+        "porcine"
+    ],
+    "table": [
+        "dining table",
+        "coffee table",
+        "desk",
+        "workbench"
+    ],
+    "tape player": [
+        "cassette player",
+        "tape deck",
+        "walkman",
+        "audio cassette player"
+    ],
+    "tennis ball": [
+        "yellow ball",
+        "green ball",
+        "court ball",
+        "tennis sphere"
+    ],
+    "tick": [
+        "blood-sucking arachnid",
+        "parasitic tick",
+        "checkmark",
+        "tick (parasite)"
+    ],
+    "tie": [
+        "necktie",
+        "bow tie",
+        "cravat",
+        "neckwear"
+    ],
+    "toaster": [
+        "pop-up toaster",
+        "bread toaster",
+        "toast maker",
+        "toasting appliance"
+    ],
+    "traffic light": [
+        "stoplight",
+        "signal light",
+        "traffic signal",
+        "road light"
+    ],
+    "train": [
+        "locomotive",
+        "railcar",
+        "metro train",
+        "railway vehicle"
+    ],
+    "tv or monitor": [
+        "television",
+        "display screen",
+        "smart TV",
+        "computer monitor"
+    ],
+    "unicycle": [
+        "single-wheeled bike",
+        "one-wheeled cycle",
+        "unicycle bike",
+        "monowheel"
+    ],
+    "violin": [
+        "fiddle",
+        "string instrument",
+        "acoustic violin",
+        "classical violin"
+    ],
+    "waffle iron": [
+        "waffle maker",
+        "waffle press",
+        "waffle baking iron",
+        "waffle appliance"
+    ],
+    "water bottle": [
+        "hydro flask",
+        "sports bottle",
+        "plastic bottle",
+        "reusable water bottle"
+    ],
+    "watercraft": [
+        "boat",
+        "ship",
+        "vessel",
+        "sailboat"
+    ],
+    "whale": [
+        "cetacean",
+        "marine mammal",
+        "blue whale",
+        "large sea mammal"
+    ],
+    "wine bottle": [
+        "wine flask",
+        "glass wine bottle",
+        "wine container",
+        "bordeaux bottle"
+    ],
+    "zebra": [
+        "striped horse",
+        "African zebra",
+        "zebra animal",
+        "zebra mammal"
+    ]
+}
