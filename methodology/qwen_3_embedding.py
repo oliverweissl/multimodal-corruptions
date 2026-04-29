@@ -79,9 +79,8 @@ class Qwen3EmbeddingInstance:
             embeddings = torch.nn.functional.normalize(embeddings, p=2, dim=1)
 
         runtime = time.time() - start_time
-
         embedding_vector = embeddings[0].float().cpu().numpy()
-
+        del inputs, outputs, embeddings
         return embedding_vector, token_count, runtime
 
     def run_batch_inference(self, texts, instructions=None):
@@ -123,7 +122,7 @@ class Qwen3EmbeddingInstance:
             embeddings = torch.nn.functional.normalize(embeddings, p=2, dim=1)
 
         runtime = time.time() - start_time
-
         embedding_vectors = [emb.float().cpu().numpy() for emb in embeddings]
+        del inputs, outputs, embeddings
 
         return embedding_vectors, token_counts, runtime

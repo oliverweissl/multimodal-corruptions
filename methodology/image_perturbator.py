@@ -5,6 +5,7 @@ from typing import Optional, Sequence
 import cv2
 import numpy as np
 from kernels.kernels import create_disk_kernel, create_motion_blur_kernel
+from config.experiment import MIN_PERTURBATION_SCALE
 
 
 class ImagePerturbator:
@@ -27,8 +28,11 @@ class ImagePerturbator:
         return values[-1]
 
     def apply_perturbation(
-        self, image: np.ndarray, attack_type: str, scale: float = 0.0, **kwargs
+        self, image: np.ndarray, attack_type: str, scale: float = 0.0,
+        min_scale: float = MIN_PERTURBATION_SCALE, **kwargs
     ) -> np.ndarray:
+        if scale <= min_scale:
+            return image
         method_map = {
             "jpeg_filter": self.jpeg_filter,
             "pixelate": self.pixelate,
@@ -233,29 +237,10 @@ class ImagePerturbator:
         return image
 
     def false_color_filter(self, scale: float, image: np.ndarray) -> np.ndarray:
-        idx = min(int(scale * 5), 4)
-        false_color = image.copy()
-        if idx == 0:
-            false_color[:, :, 0] = image[:, :, 1]
-            false_color[:, :, 1] = image[:, :, 2]
-            false_color[:, :, 2] = image[:, :, 0]
-        elif idx == 1:
-            false_color[:, :, 0] = image[:, :, 1]
-            false_color[:, :, 1] = image[:, :, 0]
-            false_color[:, :, 2] = image[:, :, 2]
-        elif idx == 2:
-            false_color[:, :, 0] = image[:, :, 2]
-            false_color[:, :, 1] = image[:, :, 1]
-            false_color[:, :, 2] = image[:, :, 0]
-        elif idx == 3:
-            false_color[:, :, 0] = 255 - image[:, :, 0]
-            false_color[:, :, 1] = 255 - image[:, :, 1]
-            false_color[:, :, 2] = 255 - image[:, :, 2]
-        elif idx == 4:
-            false_color[:, :, 0] = (image[:, :, 0] + image[:, :, 1]) // 2
-            false_color[:, :, 1] = (image[:, :, 1] + image[:, :, 2]) // 2
-            false_color[:, :, 2] = (image[:, :, 2] + image[:, :, 0]) // 2
-        return false_color
+        shift = int(scale * 180)
+        hsv = cv2.cvtColor(image, cv2.COLOR_RGB2HSV).astype(np.int32)
+        hsv[:, :, 0] = (hsv[:, :, 0] + shift) % 180
+        return cv2.cvtColor(hsv.astype(np.uint8), cv2.COLOR_HSV2RGB)
 
     def grayscale_filter(
         self,

@@ -137,24 +137,24 @@ class HuggingFaceVLM(VLMBase):
 
     def run_inference(self, image, prompt: str):
         inputs = self._prepare_single(image, prompt).to(self.device)
-
         t0 = time.time()
-        generated_ids = self.model.generate(
-            **inputs, max_new_tokens=self.max_new_tokens, do_sample=False
-        )
+        with torch.no_grad():
+            generated_ids = self.model.generate(
+                **inputs, max_new_tokens=self.max_new_tokens, do_sample=False
+            )
         runtime = time.time() - t0
-
         texts, visible, raw = self._decode_outputs(inputs, generated_ids)
+        del inputs, generated_ids
         return texts[0], visible[0], raw[0], runtime
 
     def run_batch_inference(self, images, prompts):
         inputs = self._prepare_batch(images, prompts).to(self.device)
-
         t0 = time.time()
-        generated_ids = self.model.generate(
-            **inputs, max_new_tokens=self.max_new_tokens, do_sample=False
-        )
+        with torch.no_grad():
+            generated_ids = self.model.generate(
+                **inputs, max_new_tokens=self.max_new_tokens, do_sample=False
+            )
         runtime = time.time() - t0
-
         texts, visible, raw = self._decode_outputs(inputs, generated_ids)
+        del inputs, generated_ids
         return texts, visible, raw, runtime

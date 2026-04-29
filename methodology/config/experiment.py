@@ -20,3 +20,7 @@ EARLY_STOP_TXT_SIM_MIN = 0.70
 
 # Image preprocessing
 MAX_RESOLUTION = 1024
+
+# Perturbation threshold — scales at or below this value are skipped entirely.
+# Below 0.01 every perturbation is sub-perceptual (e.g. noise std < 0.031, blur radius < 2.1px).
+MIN_PERTURBATION_SCALE = 0.01

@@ -5,6 +5,7 @@ import string
 from typing import NoReturn
 
 from config import paths as _paths
+from config.experiment import MIN_PERTURBATION_SCALE
 
 
 class TextPerturbator:
@@ -253,15 +254,20 @@ class TextPerturbator:
         idx = min(int(scale * max_idx), max_idx)
         return f"{self.reinforcement_phrases[idx]} {prompt}"
 
-    def process_prompt(self, prompt: str, attack_type: str, scale: float = 0.0) -> str:
+    def process_prompt(self, prompt: str, attack_type: str, scale: float = 0.0, min_scale: float = MIN_PERTURBATION_SCALE) -> str:
         """Unified processor: extracts the 'objects' substring or modifies the full prompt.
 
         :param prompt: Original prompt string.
         :param attack_type: Perturbation type identifier (e.g. 'homophone', 'fragmentation').
         :param scale: Severity in [0.0, 1.0].
+        :param min_scale: Scales at or below this value return prompt unchanged.
         :returns: Perturbed prompt string.
         """
         scale = float(scale)
+        if scale <= min_scale:
+            return prompt
+        if attack_type == "reinforcement" and scale <= 1 / 6:
+            return prompt
 
         match = re.search(r'objects "(.*?)"', prompt)
         full_object_str = match.group(1) if match else None

@@ -9,6 +9,7 @@ from text_perturbator import TextPerturbator
 from vlm import VLMBase
 
 from config import search as _search
+from config.experiment import MIN_PERTURBATION_SCALE as _DEFAULT_MIN_SCALE
 from .utils import (
     compute_mean_iou,
     ensure_rgb,
@@ -29,11 +30,15 @@ def _apply_image_perturbations(
     img_scales: np.ndarray,
     bboxes: list[list[int]],
     image_perturbations: list[str],
+    min_scale: float = 0.0,
 ) -> tuple[np.ndarray, dict[str, float]]:
     current_np = ensure_rgb(clean_np).copy()
     applied = {}
     for i, name in enumerate(image_perturbations):
         scale = float(img_scales[i])
+        if scale <= min_scale:
+            applied[name] = scale
+            continue
         kwargs = {"bboxes": bboxes} if name == "cutout" else {}
         current_np = image_perturbator.apply_perturbation(current_np, name, scale=scale, **kwargs)
         applied[name] = scale
@@ -45,11 +50,15 @@ def _apply_text_perturbations(
     original_prompt: str,
     txt_scales: np.ndarray,
     text_perturbations: list[str],
+    min_scale: float = 0.0,
 ) -> tuple[str, dict[str, float]]:
     current_prompt = original_prompt
     applied = {}
     for i, name in enumerate(text_perturbations):
         scale = float(txt_scales[i])
+        if scale <= min_scale:
+            applied[name] = scale
+            continue
         current_prompt = text_perturbator.process_prompt(current_prompt, name, scale=scale)
         applied[name] = scale
     return current_prompt, applied
@@ -64,6 +73,7 @@ class FitnessEvaluator:
         image_perturbations: list[str] = _search.IMAGE_PERTURBATIONS,
         text_perturbations: list[str] = _search.TEXT_PERTURBATIONS,
         mode: str = "multi",
+        min_perturbation_scale: float = _DEFAULT_MIN_SCALE,
     ) -> None:
         logger.info("Initialising FitnessEvaluator: loading models ...")
         self.image_perturbator = ImagePerturbator()
@@ -71,6 +81,7 @@ class FitnessEvaluator:
         self.vlm = vlm
         self.qwen_emb = Qwen3EmbeddingInstance(seed=seed)
         self.mode = mode
+        self.min_perturbation_scale = min_perturbation_scale
         self.image_perturbations = image_perturbations
         self.text_perturbations = text_perturbations
         self.n_img = len(image_perturbations)
@@ -148,13 +159,15 @@ class FitnessEvaluator:
         bboxes = _bbox_list(sample_data["gt_bboxes"])
 
         corrupt_np, applied_img = _apply_image_perturbations(
-            self.image_perturbator, clean_np, full_x[: self.n_img], bboxes, self.image_perturbations
+            self.image_perturbator, clean_np, full_x[: self.n_img], bboxes,
+            self.image_perturbations, self.min_perturbation_scale,
         )
         corrupt_pil = Image.fromarray(corrupt_np.astype(np.uint8))
 
         original_prompt = sample_data["original_prompt"]
         corrupt_prompt, applied_txt = _apply_text_perturbations(
-            self.text_perturbator, original_prompt, full_x[self.n_img :], self.text_perturbations
+            self.text_perturbator, original_prompt, full_x[self.n_img :],
+            self.text_perturbations, self.min_perturbation_scale,
         )
 
         response_text, token_count, raw_token_count, runtime = self.vlm.run_inference(
@@ -220,6 +233,7 @@ class FitnessEvaluator:
                 full_x[: self.n_img],
                 bboxes,
                 self.image_perturbations,
+                self.min_perturbation_scale,
             )
             corrupt_nps.append(corrupt_np)
             corrupt_pils.append(Image.fromarray(corrupt_np.astype(np.uint8)))
@@ -230,6 +244,7 @@ class FitnessEvaluator:
                 original_prompt,
                 full_x[self.n_img :],
                 self.text_perturbations,
+                self.min_perturbation_scale,
             )
             corrupt_prompts.append(corrupt_prompt)
             all_applied_txt.append(applied_txt)
