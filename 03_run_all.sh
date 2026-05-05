@@ -60,7 +60,7 @@ worker() {
 
         CUDA_VISIBLE_DEVICES="$gpu" vllm serve "$model_id" \
             --port "$port" \
-            --gpu-memory-utilization 0.85 \
+            --gpu-memory-utilization 0.8 \
             --enforce-eager --trust-remote-code --max-model-len 4096 \
             > "logs/${vlm}_server.log" 2>&1 &
         local server_pid=$!
@@ -89,8 +89,8 @@ worker() {
 echo "$(date '+%H:%M:%S')  Starting embedding server on GPU 0 port 8699"
 fuser -k 8699/tcp 2>/dev/null || true; sleep 1
 CUDA_VISIBLE_DEVICES=0 vllm serve "Qwen/Qwen3-Embedding-0.6B" \
-    --port 8699 --task embed \
-    --gpu-memory-utilization 0.05 \
+    --port 8699 \
+    --gpu-memory-utilization 0.1 \
     --enforce-eager --trust-remote-code --max-model-len 4096 \
     > logs/embedding_server.log 2>&1 &
 EMB_PID=$!
