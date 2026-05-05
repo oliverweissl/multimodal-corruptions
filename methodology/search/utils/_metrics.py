@@ -31,7 +31,8 @@ def _extract_label(pred: dict) -> str:
 
 
 def _to_pixel_box(
-    bbox: list[float], ref_w: int, ref_h: int, coord_scale: Optional[int] = None
+    bbox: list[float], ref_w: int, ref_h: int, coord_scale: Optional[int] = None,
+    bbox_order: str = "xyxy",
 ) -> list[float]:
     """Normalise a bounding box to pixel coordinates regardless of input scale.
 
@@ -41,14 +42,20 @@ def _to_pixel_box(
     - Normalised coordinates → rescaled using ``coord_scale`` if provided,
       otherwise the scale is inferred as the nearest power of ten.
 
-    :param bbox: Bounding box ``[x1, y1, x2, y2]``.
+    :param bbox: Bounding box in the model's native order.
     :param ref_w: Reference image width in pixels.
     :param ref_h: Reference image height in pixels.
     :param coord_scale: Model's internal coordinate scale (e.g. 1000 for Qwen, 896 for Gemma).
         When ``None`` the scale is inferred automatically.
-    :returns: Bounding box in pixel coordinates.
+    :param bbox_order: Axis order of the bbox — ``"xyxy"`` (standard) or ``"yxyx"``
+        (e.g. Gemma outputs ``[y1, x1, y2, x2]``).
+    :returns: Bounding box in ``[x1, y1, x2, y2]`` pixel coordinates.
     """
-    x1, y1, x2, y2 = bbox
+    a, b, c, d = bbox
+    if bbox_order == "yxyx":
+        x1, y1, x2, y2 = b, a, d, c  # swap: [y1,x1,y2,x2] → [x1,y1,x2,y2]
+    else:
+        x1, y1, x2, y2 = a, b, c, d
     scale = coord_scale or 1.0
     return [x1 * ref_w / scale, y1 * ref_h / scale, x2 * ref_w / scale, y2 * ref_h / scale]
 
@@ -78,6 +85,7 @@ def compute_mean_iou(
     ref_h: int,
     valid_prompt_labels: Optional[list[str]] = None,
     coord_scale: Optional[int] = None,
+    bbox_order: str = "xyxy",
 ) -> float:
     """Compute mean IoU between ground-truth boxes and VLM predictions.
 
@@ -87,6 +95,7 @@ def compute_mean_iou(
     :param ref_h: Image height in pixels (used for coordinate normalisation).
     :param valid_prompt_labels: Optional label whitelist for relaxed label matching.
     :param coord_scale: Model's internal coordinate scale; passed to :func:`_to_pixel_box`.
+    :param bbox_order: Axis order of predicted bboxes — ``"xyxy"`` or ``"yxyx"``.
     :returns: Mean IoU across all GT objects; 0.0 if no GT or no matches.
     """
     if not gt_dict:
@@ -113,7 +122,7 @@ def compute_mean_iou(
                         is_match = True
                         break
             if is_match:
-                cur = _calculate_iou(gt_box, _to_pixel_box(bbox, ref_w, ref_h, coord_scale))
+                cur = _calculate_iou(gt_box, _to_pixel_box(bbox, ref_w, ref_h, coord_scale, bbox_order))
                 if cur > best_iou:
                     best_iou = cur
         ious.append(best_iou)

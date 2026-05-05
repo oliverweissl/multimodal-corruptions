@@ -114,6 +114,7 @@ class FitnessEvaluator:
         self.mode = mode
         self.min_perturbation_scale = min_perturbation_scale
         self.coord_scale: int = getattr(vlm, "COORD_SCALE")
+        self.bbox_order: str = getattr(vlm, "BBOX_ORDER", "xyxy")
         self.image_perturbations = image_perturbations
         self.text_perturbations = text_perturbations
         self.n_img = len(image_perturbations)
@@ -200,6 +201,7 @@ class FitnessEvaluator:
             orig_h,
             valid_prompt_labels=extract_target_objects(prompt),
             coord_scale=self.coord_scale,
+            bbox_order=self.bbox_order,
         )
         sample_data["baseline_preds"] = parsed_preds
         return float(f"{iou:.5f}")
@@ -240,6 +242,7 @@ class FitnessEvaluator:
             orig_h,
             valid_prompt_labels=extract_target_objects(corrupt_prompt),
             coord_scale=self.coord_scale,
+            bbox_order=self.bbox_order,
         )
 
         clean_f64 = clean_np.astype(np.float64) / 255.0
@@ -326,6 +329,7 @@ class FitnessEvaluator:
                 orig_h,
                 valid_prompt_labels=extract_target_objects(corrupt_prompts[idx]),
                 coord_scale=self.coord_scale,
+            bbox_order=self.bbox_order,
             )
             metrics_list.append(
                 {

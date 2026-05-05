@@ -34,6 +34,7 @@ class VLLMInstance(VLMBase):
 
     MODEL_ID: str = None
     COORD_SCALE: Optional[int] = None
+    BBOX_ORDER: str = "xyxy"  # "xyxy" (standard) or "yxyx" (e.g. Gemma outputs y1 x1 y2 x2)
     MAX_MODEL_LEN: Optional[int] = None
     TENSOR_PARALLEL_SIZE: int = 1
 

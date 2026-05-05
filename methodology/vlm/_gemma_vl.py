@@ -7,6 +7,7 @@ from PIL import Image
 class GemmaVLInstance(VLLMInstance):
     MODEL_ID = "google/gemma-3-4b-it"
     COORD_SCALE = 896
+    BBOX_ORDER = "yxyx"  # Gemma outputs [y1, x1, y2, x2]
 
     def _messages(self, image: Image.Image, prompt: str) -> list[dict]:
         """Resize image to 896×896 (Gemma's training resolution) before encoding.
