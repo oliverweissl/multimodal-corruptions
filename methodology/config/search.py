@@ -1,5 +1,3 @@
-QWEN_SCALE_FACTOR = 1000
-
 PARETO_FILENAME = "pareto_front.json"
 BEST_RESULT_FILENAME = "best_result.json"
 BEST_RESULT_IMAGE_FILENAME = "best_result.png"

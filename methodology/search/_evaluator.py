@@ -1,15 +1,22 @@
 import logging
 import re
 
+# caching_allocator_warmup (added in newer transformers) pre-allocates a large
+# GPU buffer that OOMs when vLLM already occupies most of GPU memory.
+import transformers.modeling_utils as _tmu
+if hasattr(_tmu, "caching_allocator_warmup"):
+    _tmu.caching_allocator_warmup = lambda *a, **kw: None
+
 import numpy as np
 from image_perturbator import ImagePerturbator
 from PIL import Image
 from qwen_3_embedding import Qwen3EmbeddingInstance
 from text_perturbator import TextPerturbator
 from vlm import VLMBase
+from typing import Any
 
 from config import search as _search
-from config.experiment import MIN_PERTURBATION_SCALE as _DEFAULT_MIN_SCALE
+from config import experiment as _experiment
 from .utils import (
     compute_mean_iou,
     ensure_rgb,
@@ -21,6 +28,11 @@ logger = logging.getLogger(__name__)
 
 
 def _bbox_list(gt_bboxes: dict) -> list[list[int]]:
+    """Convert a ground-truth bbox dict to a flat list of ``[xmin, ymin, xmax, ymax]`` lists.
+
+    :param gt_bboxes: Dict of ``{label: {xmin, ymin, xmax, ymax}}`` entries.
+    :returns: List of bounding boxes as integer coordinate lists.
+    """
     return [[v["xmin"], v["ymin"], v["xmax"], v["ymax"]] for v in gt_bboxes.values()]
 
 
@@ -32,6 +44,16 @@ def _apply_image_perturbations(
     image_perturbations: list[str],
     min_scale: float = 0.0,
 ) -> tuple[np.ndarray, dict[str, float]]:
+    """Sequentially apply all image perturbations encoded in the genome slice.
+
+    :param image_perturbator: Configured :class:`ImagePerturbator` instance.
+    :param clean_np: Original image as a uint8 numpy array.
+    :param img_scales: Array of per-perturbation scale values from the genome.
+    :param bboxes: Ground-truth bounding boxes for cutout budget enforcement.
+    :param image_perturbations: Ordered list of perturbation names.
+    :param min_scale: Scales at or below this value are skipped.
+    :returns: Tuple of (corrupted RGB array, dict mapping perturbation name to applied scale).
+    """
     current_np = ensure_rgb(clean_np).copy()
     applied = {}
     for i, name in enumerate(image_perturbations):
@@ -52,6 +74,15 @@ def _apply_text_perturbations(
     text_perturbations: list[str],
     min_scale: float = 0.0,
 ) -> tuple[str, dict[str, float]]:
+    """Sequentially apply all text perturbations encoded in the genome slice.
+
+    :param text_perturbator: Configured :class:`TextPerturbator` instance.
+    :param original_prompt: Clean prompt string.
+    :param txt_scales: Array of per-perturbation scale values from the genome.
+    :param text_perturbations: Ordered list of perturbation names.
+    :param min_scale: Scales at or below this value are skipped.
+    :returns: Tuple of (corrupted prompt string, dict mapping perturbation name to applied scale).
+    """
     current_prompt = original_prompt
     applied = {}
     for i, name in enumerate(text_perturbations):
@@ -73,7 +104,7 @@ class FitnessEvaluator:
         image_perturbations: list[str] = _search.IMAGE_PERTURBATIONS,
         text_perturbations: list[str] = _search.TEXT_PERTURBATIONS,
         mode: str = "multi",
-        min_perturbation_scale: float = _DEFAULT_MIN_SCALE,
+        min_perturbation_scale: float = _experiment.MIN_PERTURBATION_SCALE,
     ) -> None:
         logger.info("Initialising FitnessEvaluator: loading models ...")
         self.image_perturbator = ImagePerturbator()
@@ -82,6 +113,7 @@ class FitnessEvaluator:
         self.qwen_emb = Qwen3EmbeddingInstance(seed=seed)
         self.mode = mode
         self.min_perturbation_scale = min_perturbation_scale
+        self.coord_scale: int = getattr(vlm, "COORD_SCALE")
         self.image_perturbations = image_perturbations
         self.text_perturbations = text_perturbations
         self.n_img = len(image_perturbations)
@@ -89,6 +121,11 @@ class FitnessEvaluator:
         logger.info("All models loaded.")
 
     def _expand_genome(self, x: np.ndarray) -> np.ndarray:
+        """Pad a mode-specific genome to the full image+text length.
+
+        :param x: Genome array of length ``n_img``, ``n_txt``, or ``n_img + n_txt``.
+        :returns: Full-length genome array padded with zeros for the inactive modality.
+        """
         if self.mode == "image":
             return np.concatenate([x, np.zeros(self.n_txt)])
         if self.mode == "text":
@@ -117,6 +154,12 @@ class FitnessEvaluator:
     def _batch_embed(
         self, labels_a: list[str], labels_b_list: list[list[str]]
     ) -> dict[str, np.ndarray]:
+        """Embed all unique labels from two label sets in a single batch pass.
+
+        :param labels_a: First list of label strings (e.g. original prompt objects).
+        :param labels_b_list: List of label lists (e.g. corrupted prompt objects per genome).
+        :returns: Dict mapping each unique label string to its embedding vector.
+        """
         unique = set(labels_a)
         for labels_b in labels_b_list:
             unique.update(labels_b)
@@ -125,6 +168,13 @@ class FitnessEvaluator:
         return dict(zip(unique_list, embs))
 
     def _txt_similarity(self, objs_orig, objs_corr, emb_map):
+        """Compute mean pairwise cosine similarity between original and corrupted object labels.
+
+        :param objs_orig: List of original object label strings.
+        :param objs_corr: List of corrupted object label strings (same length as ``objs_orig``).
+        :param emb_map: Pre-computed embedding dict from :meth:`_batch_embed`.
+        :returns: Mean cosine similarity in [0.0, 1.0].
+        """
         pair_sims = []
         for orig_label, corr_label in zip(objs_orig, objs_corr):
             if orig_label == corr_label:
@@ -133,7 +183,12 @@ class FitnessEvaluator:
                 pair_sims.append(self._cosine_similarity(emb_map[orig_label], emb_map[corr_label]))
         return sum(pair_sims) / len(pair_sims) if pair_sims else 0.0
 
-    def evaluate_baseline(self, sample_data):
+    def evaluate_baseline(self, sample_data: dict[str, Any]) -> float:
+        """Run VLM inference on the clean image and return the mean IoU.
+
+        :param sample_data: Sample dict as returned by :func:`~search._data.load_sample`.
+        :returns: Mean IoU score (float, 5 decimal places) on the unperturbed input.
+        """
         orig_w, orig_h = sample_data["orig_dims"]
         prompt = sample_data["original_prompt"]
         response_text, _, _, _ = self.vlm.run_inference(sample_data["clean_image_pil"], prompt)
@@ -144,7 +199,9 @@ class FitnessEvaluator:
             orig_w,
             orig_h,
             valid_prompt_labels=extract_target_objects(prompt),
+            coord_scale=self.coord_scale,
         )
+        sample_data["baseline_preds"] = parsed_preds
         return float(f"{iou:.5f}")
 
     def evaluate_single(self, x, sample_data):
@@ -182,6 +239,7 @@ class FitnessEvaluator:
             orig_w,
             orig_h,
             valid_prompt_labels=extract_target_objects(corrupt_prompt),
+            coord_scale=self.coord_scale,
         )
 
         clean_f64 = clean_np.astype(np.float64) / 255.0
@@ -267,6 +325,7 @@ class FitnessEvaluator:
                 orig_w,
                 orig_h,
                 valid_prompt_labels=extract_target_objects(corrupt_prompts[idx]),
+                coord_scale=self.coord_scale,
             )
             metrics_list.append(
                 {

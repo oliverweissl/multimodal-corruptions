@@ -1,14 +1,8 @@
-"""
-Moonshot Kimi-VL vision-language model.
+"""Moonshot Kimi-VL-A3B-Instruct."""
 
-Uses trust_remote_code=True (custom modeling code on HuggingFace).
-
-Default: Kimi-VL-A3B-Instruct. Pass model_id to override.
-"""
-
-from ._hf_vlm import HuggingFaceVLM
+from ._vllm import VLLMInstance
 
 
-class KimiVLInstance(HuggingFaceVLM):
+class KimiVLInstance(VLLMInstance):
     MODEL_ID = "moonshotai/Kimi-VL-A3B-Instruct"
-    TRUST_REMOTE_CODE = True
+    COORD_SCALE = 1  # Only source: https://github.com/MoonshotAI/Kimi-VL/issues/56

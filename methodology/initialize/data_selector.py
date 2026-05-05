@@ -8,6 +8,7 @@ import numpy as np
 import scipy.io
 import torch
 from config.experiment import NUM_IMAGES, SEED
+from config.prompts import DETECTION_PROMPT
 from config.paths import (
     ANNOTATIONS_PATH,
     DATASET_PATH,
@@ -19,6 +20,11 @@ from tqdm import tqdm
 
 
 def load_synset_to_label(mat_file_path):
+    """Load the synset-to-human-label mapping from the ImageNet meta ``.mat`` file.
+
+    :param mat_file_path: Path to the ImageNet ``meta.mat`` file.
+    :returns: Dict mapping synset strings (e.g. ``"n01440764"``) to label strings.
+    """
     meta = scipy.io.loadmat(mat_file_path)
     synsets = meta["synsets"]
     synset_to_label = {}
@@ -30,6 +36,12 @@ def load_synset_to_label(mat_file_path):
 
 
 def parse_annotation(xml_file, synset_to_label):
+    """Parse an ImageNet PASCAL VOC XML annotation file.
+
+    :param xml_file: Path to the XML annotation file.
+    :param synset_to_label: Dict mapping synset IDs to human-readable labels.
+    :returns: Tuple of (ground_truth dict, set of unique labels, instance count).
+    """
     tree = ET.parse(xml_file)
     root = tree.getroot()
     ground_truth = {}
@@ -90,6 +102,10 @@ class DataSelector:
         self.synset_to_label = load_synset_to_label(mat_file_path)
 
     def scan_and_sort_candidates(self):
+        """Scan the annotations directory and bucket images by category.
+
+        :returns: Three shuffled lists (solo-instance, multi-instance, multi-class) of candidate dicts.
+        """
         print("Scanning dataset annotations...")
         xml_files = sorted([f for f in os.listdir(self.annotations_path) if f.endswith(".xml")])
 
@@ -125,6 +141,11 @@ class DataSelector:
         return single_class_solo_instance, single_class_multi_instance, multi_class_candidates
 
     def get_existing_progress(self, category):
+        """Read existing saved selections to determine resume state.
+
+        :param category: Category subdirectory name (e.g. ``"single/solo"``).
+        :returns: Tuple of (next_index, set of already-saved image filenames).
+        """
         category_dir = os.path.join(self.results_dir, category)
         if not os.path.exists(category_dir):
             return 1, set()
@@ -150,6 +171,12 @@ class DataSelector:
         return next_index, completed_filenames
 
     def save_selection(self, cand, category, index):
+        """Persist one selected sample: write ``original.json`` and copy the image.
+
+        :param cand: Candidate dict with keys ``image_file`` and ``gt``.
+        :param category: Category subdirectory name.
+        :param index: Numeric folder index for this sample.
+        """
         dir_path = os.path.join(self.results_dir, category, str(index))
         os.makedirs(dir_path, exist_ok=True)
 
@@ -159,10 +186,7 @@ class DataSelector:
 
         object_names = set(k.split("_")[0] for k in cand["gt"].keys())
         objects_str = ", ".join(sorted(object_names))
-        prompt = (
-            f'Identify the objects "{objects_str}" in the image '
-            f"and return their bounding boxes in JSON format:"
-        )
+        prompt = DETECTION_PROMPT.format(objects=objects_str)
 
         data = {
             "image": cand["image_file"],
@@ -181,6 +205,12 @@ class DataSelector:
             print(f"Error copying {image_path}: {e}")
 
     def process_group(self, candidates, group_name, target_size):
+        """Save selections from ``candidates`` until ``target_size`` samples exist for ``group_name``.
+
+        :param candidates: Shuffled list of candidate dicts from :meth:`scan_and_sort_candidates`.
+        :param group_name: Category directory name (e.g. ``"single/solo"``).
+        :param target_size: Total number of samples required in this group.
+        """
         print(f"\n--- Processing Group: {group_name} ---")
 
         next_save_index, completed_filenames = self.get_existing_progress(group_name)
@@ -213,6 +243,7 @@ class DataSelector:
             )
 
     def run_selection(self):
+        """Orchestrate the full selection pipeline across all three annotation categories."""
         solo_candidates, multi_inst_candidates, multi_class_candidates = (
             self.scan_and_sort_candidates()
         )

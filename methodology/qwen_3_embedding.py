@@ -1,90 +1,74 @@
-import random
+"""
+Qwen3-Embedding-0.6B served via vLLM for GPU-efficient text embedding.
+
+Uses a small 0.6B model so the VLM can claim most of the GPU budget.
+vLLM manages memory independently from the VLM instance, eliminating
+OOM conflicts from separate HF model allocations.
+"""
+
 import time
+from typing import Optional, Union
 
 import numpy as np
-import torch
-from transformers import AutoModel, AutoTokenizer
 
 
 class Qwen3EmbeddingInstance:
+    """vLLM-backed text embedding using Qwen3-Embedding-0.6B.
 
-    def __init__(self, seed: int, max_length: int = 8192, dvc: str = "gpu") -> None:
-        self.max_length = max_length
-        self.seed = seed
-        random.seed(seed)
-        np.random.seed(seed)
-        torch.manual_seed(seed)
+    :param seed: Random seed for vLLM.
+    :param gpu_memory_utilization: Fraction of GPU memory reserved for the embedding model.
+    :param model_id: Override the default model identifier.
+    """
 
-        if dvc.lower() == "gpu" and torch.cuda.is_available():
-            self.device = torch.device("cuda")
-        else:
-            self.device = torch.device("cpu")
+    MODEL_ID = "Qwen/Qwen3-Embedding-0.6B"
 
-        print(f"Loading model on {self.device}...")
+    def __init__(
+        self,
+        seed: int,
+        gpu_memory_utilization: float = 0.1,  # For 43GB VRAM -> ~2.15GB Space
+        model_id: Optional[str] = None,
+    ) -> None:
+        """Load the embedding model via vLLM.
 
-        self.model = AutoModel.from_pretrained(
-            "Qwen/Qwen3-Embedding-4B",
-            dtype=torch.bfloat16,
-            device_map=None if self.device.type == "cpu" else "cuda",
-            trust_remote_code=True,
-            attn_implementation="flash_attention_2",
-        )
-
-        self.tokenizer = AutoTokenizer.from_pretrained(
-            "Qwen/Qwen3-Embedding-4B", trust_remote_code=True
-        )
-
-        # Decoder-only model: left padding makes last-token pooling straightforward
-        self.tokenizer.padding_side = "left"
-
-    def _last_token_pool(self, last_hidden_states, attention_mask):
-        """Extracts the hidden state of the last non-padding token per sequence.
-
-        :param last_hidden_states: Hidden states tensor of shape (batch, seq_len, hidden).
-        :param attention_mask: Attention mask tensor of shape (batch, seq_len).
-        :returns: Pooled hidden states of shape (batch, hidden).
+        :param seed: Random seed forwarded to vLLM.
+        :param gpu_memory_utilization: Fraction of GPU memory this model may use.
+        :param model_id: Override the class-level ``MODEL_ID``.
         """
-        sequence_lengths = attention_mask.sum(dim=1) - 1
-        batch_size = last_hidden_states.shape[0]
+        from vllm import LLM
 
-        return last_hidden_states[
-            torch.arange(batch_size, device=last_hidden_states.device), sequence_lengths
-        ]
+        self.llm = LLM(
+            model=model_id or self.MODEL_ID,
+            seed=seed,
+            max_model_len=4096,
+            gpu_memory_utilization=gpu_memory_utilization,
+            trust_remote_code=True,
+        )
 
-    def run_inference(self, text: str, instruction: str = None):
-        """Generates an L2-normalised embedding (dim 2560) for a single text input.
+    def run_inference(
+        self, text: str, instruction: Optional[str] = None
+    ) -> tuple[np.ndarray, int, float]:
+        """Embed a single text string.
 
         :param text: Input text to embed.
         :param instruction: Optional instruction prefix prepended to text.
-        :returns: Tuple of (embedding vector, token count, runtime in seconds).
+        :returns: Tuple of (L2-normalised embedding vector, token count, runtime seconds).
         """
         full_text = f"{instruction}{text}" if instruction else text
+        t0 = time.time()
+        outputs = self.llm.embed([full_text])
+        runtime = time.time() - t0
 
-        inputs = self.tokenizer(
-            full_text,
-            max_length=self.max_length,
-            padding=True,
-            truncation=True,
-            return_tensors="pt",
-        )
-        inputs = inputs.to(self.device)
+        emb = np.array(outputs[0].outputs.embedding, dtype=np.float32)
+        emb /= np.linalg.norm(emb) + 1e-9
+        token_count = len(outputs[0].prompt_token_ids)
+        return emb, token_count, runtime
 
-        token_count = inputs.input_ids.shape[1]
-
-        start_time = time.time()
-
-        with torch.no_grad():
-            outputs = self.model(**inputs)
-            embeddings = self._last_token_pool(outputs.last_hidden_state, inputs.attention_mask)
-            embeddings = torch.nn.functional.normalize(embeddings, p=2, dim=1)
-
-        runtime = time.time() - start_time
-        embedding_vector = embeddings[0].float().cpu().numpy()
-        del inputs, outputs, embeddings
-        return embedding_vector, token_count, runtime
-
-    def run_batch_inference(self, texts, instructions=None):
-        """Generates L2-normalised embeddings for a batch of text inputs.
+    def run_batch_inference(
+        self,
+        texts: list[str],
+        instructions: Optional[Union[str, list[str]]] = None,
+    ) -> tuple[list[np.ndarray], list[int], float]:
+        """Embed a batch of text strings in a single vLLM call.
 
         :param texts: List of input texts to embed.
         :param instructions: Optional instruction prefix(es): a single string applied to all, a
@@ -95,34 +79,24 @@ class Qwen3EmbeddingInstance:
         if instructions is None:
             full_texts = texts
         elif isinstance(instructions, str):
-            full_texts = [f"{instructions}{text}" for text in texts]
+            full_texts = [f"{instructions}{t}" for t in texts]
         elif isinstance(instructions, list):
             if len(instructions) != len(texts):
                 raise ValueError("Instructions list length must match texts list length.")
-            full_texts = [f"{inst}{text}" for inst, text in zip(instructions, texts)]
+            full_texts = [f"{inst}{t}" for inst, t in zip(instructions, texts)]
         else:
             full_texts = texts
 
-        inputs = self.tokenizer(
-            full_texts,
-            max_length=self.max_length,
-            padding=True,
-            truncation=True,
-            return_tensors="pt",
-        )
-        inputs = inputs.to(self.device)
+        t0 = time.time()
+        outputs = self.llm.embed(full_texts)
+        runtime = time.time() - t0
 
-        token_counts = [len(ids) for ids in inputs.input_ids]
+        vectors = []
+        token_counts = []
+        for o in outputs:
+            emb = np.array(o.outputs.embedding, dtype=np.float32)
+            emb /= np.linalg.norm(emb) + 1e-9
+            vectors.append(emb)
+            token_counts.append(len(o.prompt_token_ids))
 
-        start_time = time.time()
-
-        with torch.no_grad():
-            outputs = self.model(**inputs)
-            embeddings = self._last_token_pool(outputs.last_hidden_state, inputs.attention_mask)
-            embeddings = torch.nn.functional.normalize(embeddings, p=2, dim=1)
-
-        runtime = time.time() - start_time
-        embedding_vectors = [emb.float().cpu().numpy() for emb in embeddings]
-        del inputs, outputs, embeddings
-
-        return embedding_vectors, token_counts, runtime
+        return vectors, token_counts, runtime

@@ -6,7 +6,6 @@ from ._data import (
     save_all_meta,
     save_baseline_fail,
 )
-from ._evaluator import FitnessEvaluator
 from ._operators import BudgetAwareSampling, BudgetRepair, EarlyStopCallback
 from ._problem import PerturbationProblem
 
@@ -23,3 +22,11 @@ __all__ = [
     "save_baseline_fail",
     "save_all_meta",
 ]
+
+
+def __getattr__(name: str):
+    # Defer FitnessEvaluator import so vLLM is not loaded at package import time.
+    if name == "FitnessEvaluator":
+        from ._evaluator import FitnessEvaluator
+        return FitnessEvaluator
+    raise AttributeError(f"module 'search' has no attribute {name!r}")

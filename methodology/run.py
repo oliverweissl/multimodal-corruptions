@@ -13,6 +13,7 @@ from pymoo.operators.crossover.sbx import SBX
 from pymoo.operators.mutation.pm import PM
 from pymoo.optimize import minimize
 from pymoo.termination import get_termination
+
 from search import (
     BudgetAwareSampling,
     BudgetRepair,
@@ -26,18 +27,30 @@ from search import (
     save_all_meta,
     save_baseline_fail,
 )
-from vlm import GemmaVLInstance, HunyuanVLInstance, KimiVLInstance, Qwen3VLInstance
+from vlm import GemmaVLInstance, KimiVLInstance, Qwen3VLInstance, DeepSeekVL2Instance, InternVL3Instance
+_VLM_MAP = {
+        "qwen": Qwen3VLInstance,  # Works on vLLM
+        "gemma": GemmaVLInstance,  # Works on vLLM
+        "kimi": KimiVLInstance,  # Works on vLLM
+        #"hunyuan": HunyuanVLInstance,  # Not working on vLLM
+        "deepseek": DeepSeekVL2Instance,  # Works on vLLM
+        "intern": InternVL3Instance, # Not working on vLLM
+    }
 
 logger = logging.getLogger(__name__)
 
 
 def parse_args() -> argparse.Namespace:
+    """Parse CLI arguments for the perturbation robustness search experiment.
+
+    :returns: Populated :class:`argparse.Namespace` with all experiment parameters.
+    """
     parser = argparse.ArgumentParser(description="Multimodal perturbation robustness evaluation")
 
     parser.add_argument(
         "--vlm",
         required=True,
-        choices=["qwen", "gemma", "hunyuan", "kimi"],
+        choices=_VLM_MAP.keys(),
         help="Vision-language model to evaluate",
     )
     parser.add_argument(
@@ -118,6 +131,7 @@ def parse_args() -> argparse.Namespace:
 
 
 def main() -> None:
+    """Entry point: run NSGA-II-based multimodal perturbation search over all pending samples."""
     logging.basicConfig(
         level=logging.INFO,
         format="%(asctime)s  %(levelname)-8s  %(name)s  %(message)s",
@@ -133,12 +147,6 @@ def main() -> None:
     np.random.seed(args.seed)
     torch.manual_seed(args.seed)
 
-    _VLM_MAP = {
-        "qwen": Qwen3VLInstance,
-        "gemma": GemmaVLInstance,
-        "hunyuan": HunyuanVLInstance,
-        "kimi": KimiVLInstance,
-    }
     vlm = _VLM_MAP[args.vlm](seed=args.seed)
 
     all_samples = get_all_sample_folders(args.results_dir)

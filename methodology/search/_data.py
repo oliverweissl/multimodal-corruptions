@@ -16,6 +16,13 @@ logger = logging.getLogger(__name__)
 
 
 def load_sample(folder_path: str, max_resolution: int = 1024) -> dict:
+    """Load a sample folder into a runtime dict used by the evaluator.
+
+    :param folder_path: Path to the sample directory containing ``original.json`` and ``data_point.JPEG``.
+    :param max_resolution: Maximum image side length; the image is downscaled proportionally if exceeded.
+    :returns: Dict with keys ``clean_image_pil``, ``original_prompt``, ``gt_bboxes``, ``orig_dims``, etc.
+    :raises FileNotFoundError: If ``original.json`` or ``data_point.JPEG`` is missing.
+    """
     input_json = os.path.join(folder_path, "original.json")
     input_img = os.path.join(folder_path, "data_point.JPEG")
     if not os.path.exists(input_json) or not os.path.exists(input_img):
@@ -38,6 +45,11 @@ def load_sample(folder_path: str, max_resolution: int = 1024) -> dict:
 
 
 def get_all_sample_folders(results_dir: str) -> list[tuple[str, str, str]]:
+    """Discover all valid sample folders under the three annotation categories.
+
+    :param results_dir: Root results directory produced by the data selector.
+    :returns: Sorted list of ``(folder_path, category, folder_id)`` tuples.
+    """
     sample_folders = []
     for cat_rel in (os.path.join("single", "solo"), os.path.join("single", "multi"), "multi"):
         cat_abs = os.path.join(results_dir, cat_rel)
@@ -57,10 +69,24 @@ def get_all_sample_folders(results_dir: str) -> list[tuple[str, str, str]]:
 
 
 def get_output_dir(category: str, folder_id: str, output_base: str) -> str:
+    """Build the output directory path for a given sample.
+
+    :param category: Category relative path (e.g. ``"single/solo"``).
+    :param folder_id: Numeric folder identifier string.
+    :param output_base: Root output directory.
+    :returns: Absolute-or-relative path for this sample's output.
+    """
     return os.path.join(output_base, category, folder_id)
 
 
 def is_already_processed(category: str, folder_id: str, output_base: str) -> bool:
+    """Check whether a sample has already been processed by inspecting output files.
+
+    :param category: Category relative path.
+    :param folder_id: Numeric folder identifier string.
+    :param output_base: Root output directory.
+    :returns: ``True`` if a best-result or baseline-fail file exists for this sample.
+    """
     out = get_output_dir(category, folder_id, output_base)
     return os.path.exists(os.path.join(out, _BEST_FILE)) or os.path.exists(
         os.path.join(out, _BASELINE_FAIL_FILE)
@@ -68,6 +94,12 @@ def is_already_processed(category: str, folder_id: str, output_base: str) -> boo
 
 
 def save_baseline_fail(output_dir: str, baseline_iou: float, sample_data: dict) -> None:
+    """Write a baseline-fail record when the VLM cannot localise objects on the clean image.
+
+    :param output_dir: Directory in which to write the record.
+    :param baseline_iou: Clean-image IoU score that fell below the threshold.
+    :param sample_data: Sample dict containing metadata and prompt.
+    """
     os.makedirs(output_dir, exist_ok=True)
     record = {
         "status": "baseline_fail",
@@ -80,12 +112,20 @@ def save_baseline_fail(output_dir: str, baseline_iou: float, sample_data: dict) 
         },
         "original_prompt": sample_data["original_prompt"],
         "ground_truth_bboxes": sample_data["gt_bboxes"],
+        "predicted_bboxes": sample_data.get("baseline_preds", []),
     }
     with open(os.path.join(output_dir, _BASELINE_FAIL_FILE), "w") as f:
         json.dump(record, f, indent=4)
 
 
 def _recreate_perturbed(x: np.ndarray, sample_data: dict, evaluator) -> Image.Image:
+    """Recreate the perturbed image for a genome without re-running the VLM.
+
+    :param x: Genome array (may be mode-specific length).
+    :param sample_data: Sample dict with ``clean_image_pil`` and ``gt_bboxes``.
+    :param evaluator: :class:`~search._evaluator.FitnessEvaluator` instance.
+    :returns: PIL Image of the perturbed input.
+    """
     full_x = evaluator._expand_genome(x)
     current_np = ensure_rgb(np.array(sample_data["clean_image_pil"])).copy()
     bboxes = [
@@ -100,6 +140,12 @@ def _recreate_perturbed(x: np.ndarray, sample_data: dict, evaluator) -> Image.Im
 
 
 def _retrieve_cached_metrics(problem, x: np.ndarray) -> dict:
+    """Fetch metrics from the problem cache, falling back to a fresh evaluation on miss.
+
+    :param problem: :class:`~search._problem.PerturbationProblem` with a populated metrics cache.
+    :param x: Genome array.
+    :returns: Metrics dict (same format as :meth:`~search._evaluator.FitnessEvaluator.evaluate_single`).
+    """
     cached = problem.metrics_cache.get(PerturbationProblem._cache_key(x))
     if cached is not None:
         return cached
@@ -119,6 +165,20 @@ def _build_best_meta(
     problem,
     runtime,
 ):
+    """Assemble the full metadata dict for the best (minimum-L2) Pareto solution.
+
+    :param pareto_idx: Index of this solution in the Pareto front.
+    :param sample_data: Sample dict with data-source and ground-truth info.
+    :param genome: Decoded genome dict from :func:`~search.utils._genome.decode_genome`.
+    :param F_vec: Objective vector ``[iou, img_dist, txt_dist]``.
+    :param cached: Metrics dict from the cache for this genome.
+    :param iou_0: Baseline (clean-image) IoU.
+    :param early_stopped: Whether the search terminated early.
+    :param early_stop_gen: Generation at which early stop was triggered (or ``None``).
+    :param problem: :class:`~search._problem.PerturbationProblem` instance.
+    :param runtime: Wall-clock seconds for the full search.
+    :returns: Serialisable metadata dict.
+    """
     iou_adv, img_dist, txt_dist = float(F_vec[0]), float(F_vec[1]), float(F_vec[2])
     return {
         "data_source": {
@@ -162,6 +222,16 @@ def _build_best_meta(
 def save_all_meta(
     result, sample_data, problem, output_dir, runtime, early_stopped=False, early_stop_gen=None
 ):
+    """Persist the full Pareto front, best-result JSON, and best perturbed image to disk.
+
+    :param result: pymoo optimisation result object.
+    :param sample_data: Sample dict with data-source and ground-truth info.
+    :param problem: :class:`~search._problem.PerturbationProblem` instance.
+    :param output_dir: Directory in which to write output files.
+    :param runtime: Total wall-clock seconds for this sample's search.
+    :param early_stopped: Whether the search terminated early.
+    :param early_stop_gen: Generation at which early stop was triggered (or ``None``).
+    """
     os.makedirs(output_dir, exist_ok=True)
     evaluator = problem.evaluator
 

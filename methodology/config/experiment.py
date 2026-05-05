@@ -1,7 +1,5 @@
 SEED = 42669
-NUM_IMAGES = 100
-OLLAMA_MODEL = "gpt-oss:120b"
-MAPPING_CHUNK_SIZE = 20
+NUM_IMAGES = 100  # Total images per group (single, muli, mixed-multi)
 
 # NSGA-II
 POP_SIZE = 30
@@ -21,6 +19,10 @@ EARLY_STOP_TXT_SIM_MIN = 0.70
 # Image preprocessing
 MAX_RESOLUTION = 1024
 
-# Perturbation threshold — scales at or below this value are skipped entirely.
 # Below 0.01 every perturbation is sub-perceptual (e.g. noise std < 0.031, blur radius < 2.1px).
+# This saves quite a lot of compute!
 MIN_PERTURBATION_SCALE = 0.01
+
+# Mapping Generation
+OLLAMA_MODEL = "gpt-oss:120b"
+MAPPING_CHUNK_SIZE = 3

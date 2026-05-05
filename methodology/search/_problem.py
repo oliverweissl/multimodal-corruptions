@@ -71,9 +71,18 @@ class PerturbationProblem(Problem):
 
     @staticmethod
     def _cache_key(x):
+        """Convert a genome array to a hashable cache key rounded to 6 decimal places.
+
+        :param x: Genome array or sequence of floats.
+        :returns: Tuple of floats usable as a dict key.
+        """
         return tuple(round(float(v), 6) for v in x)
 
     def reset(self, sample_data):
+        """Reset all per-sample state so the problem can be reused for a new sample.
+
+        :param sample_data: New sample dict to evaluate against.
+        """
         self.sample_data = sample_data
         self._eval_count = 0
         self._skipped_count = 0
@@ -82,6 +91,13 @@ class PerturbationProblem(Problem):
         self._early_stop_eval_id = None
 
     def _evaluate(self, X, out, *args, **kwargs):
+        """Evaluate a population matrix and write objective values to ``out["F"]``.
+
+        :param X: Population matrix of shape ``(n, n_var)`` with values in [0, 1].
+        :param out: pymoo output dict; ``out["F"]`` is set to an ``(n, N_OBJ)`` array.
+        :param args: Additional positional arguments (unused).
+        :param kwargs: Additional keyword arguments (unused).
+        """
         n = X.shape[0]
         F = np.full((n, N_OBJ), 1.0)
         effective_batch = n if self.batch_size == 0 else self.batch_size

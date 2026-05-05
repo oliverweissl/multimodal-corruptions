@@ -13,6 +13,13 @@ class BudgetRepair(Repair):
         self.n_txt = n_txt
 
     def _do(self, problem, X, **kwargs):
+        """Clip values to [0, 1] and rescale any individual that exceeds the budget.
+
+        :param problem: pymoo problem instance (unused).
+        :param X: Population matrix ``(n_samples, n_var)`` modified in place.
+        :param kwargs: Additional keyword arguments (unused).
+        :returns: Repaired population matrix.
+        """
         np.clip(X, 0.0, 1.0, out=X)
         if self.mode == "multi":
             for block in (X[:, : self.n_img], X[:, self.n_img :]):
@@ -37,6 +44,13 @@ class BudgetAwareSampling(Sampling):
         self.n_txt = n_txt
 
     def _do(self, problem, n_samples, **kwargs):
+        """Sample an initial population where each individual respects the budget constraint.
+
+        :param problem: pymoo problem instance (unused).
+        :param n_samples: Number of individuals to sample.
+        :param kwargs: Additional keyword arguments (unused).
+        :returns: Population matrix of shape ``(n_samples, n_var)`` with budget-constrained values.
+        """
         n_var = {"multi": self.n_img + self.n_txt, "image": self.n_img, "text": self.n_txt}[
             self.mode
         ]
@@ -65,6 +79,10 @@ class EarlyStopCallback(Callback):
         self.trigger_gen = None
 
     def notify(self, algorithm):
+        """Force termination when the problem signals an early stop.
+
+        :param algorithm: Running pymoo algorithm instance.
+        """
         if self.trigger_gen is not None:
             return
         if self.problem_ref.early_stop_triggered:

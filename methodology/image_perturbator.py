@@ -31,6 +31,16 @@ class ImagePerturbator:
         self, image: np.ndarray, attack_type: str, scale: float = 0.0,
         min_scale: float = MIN_PERTURBATION_SCALE, **kwargs
     ) -> np.ndarray:
+        """Dispatch a named perturbation at the given scale.
+
+        :param image: Input image as a uint8 numpy array (H x W x 3).
+        :param attack_type: Name of the perturbation (e.g. ``"jpeg_filter"``).
+        :param scale: Severity in [0.0, 1.0]; values <= ``min_scale`` return the original image.
+        :param min_scale: Threshold below which no perturbation is applied.
+        :param kwargs: Extra keyword arguments forwarded to the perturbation method (e.g. ``bboxes``).
+        :returns: Perturbed image array of the same shape and dtype.
+        :raises ValueError: If ``attack_type`` is unknown or ``"cutout"`` is used without ``bboxes``.
+        """
         if scale <= min_scale:
             return image
         method_map = {
@@ -58,9 +68,18 @@ class ImagePerturbator:
             return method_map[attack_type](scale, image, bboxes)
         return method_map[attack_type](scale, image)
 
+    #### Pertubations
+
     def jpeg_filter(
         self, scale: float, image: np.ndarray, quality_levels: tuple[int, ...] = (30, 18, 15, 10, 5)
     ) -> np.ndarray:
+        """Apply JPEG compression artefacts at the given severity.
+
+        :param scale: Severity in [0.0, 1.0].
+        :param image: Input uint8 BGR image.
+        :param quality_levels: Five JPEG quality anchors mapped to scales 0–1.
+        :returns: Re-decoded uint8 image with compression artefacts.
+        """
         quality = int(self._interpolate(scale, quality_levels))
         _, encoded = cv2.imencode(".jpg", image, [int(cv2.IMWRITE_JPEG_QUALITY), quality])
         return cv2.imdecode(
@@ -73,9 +92,16 @@ class ImagePerturbator:
         img: np.ndarray,
         downsample_levels: tuple[float, ...] = (0.85, 0.55, 0.35, 0.2, 0.1),
     ) -> np.ndarray:
+        """Pixelate an image by downsampling then upsampling with nearest-neighbour interpolation.
+
+        :param scale: Severity in [0.0, 1.0].
+        :param img: Input uint8 image.
+        :param downsample_levels: Five downscale fraction anchors mapped to scales 0–1.
+        :returns: Pixelated uint8 image of the original size.
+        """
         downsample = self._interpolate(scale, downsample_levels)
         h, w = img.shape[:2]
-        img = np.asarray(img, dtype=np.uint8)
+        img = np.array(img, dtype=np.uint8)
         small_w, small_h = max(1, int(w * downsample)), max(1, int(h * downsample))
         return cv2.resize(
             cv2.resize(img, (small_w, small_h), cv2.INTER_AREA), (w, h), cv2.INTER_NEAREST
@@ -84,7 +110,14 @@ class ImagePerturbator:
     def defocus_blur(
         self, scale: float, image: np.ndarray, radius_levels: tuple[int, ...] = (2, 5, 6, 9, 12)
     ) -> np.ndarray:
-        image = np.asarray(image, dtype=np.uint8)
+        """Apply defocus blur using a disk-shaped convolution kernel.
+
+        :param scale: Severity in [0.0, 1.0].
+        :param image: Input uint8 image.
+        :param radius_levels: Five disk-radius anchors mapped to scales 0–1.
+        :returns: Blurred uint8 image.
+        """
+        image = np.array(image, dtype=np.uint8)
         radius = max(1, int(self._interpolate(scale, radius_levels)))
         return cv2.filter2D(image, -1, create_disk_kernel(radius))
 
@@ -95,7 +128,15 @@ class ImagePerturbator:
         size_levels: tuple[int, ...] = (2, 4, 6, 10, 15),
         angle_levels: tuple[int, ...] = (5, 12, 20, 30, 45),
     ) -> np.ndarray:
-        image = np.asarray(image, dtype=np.uint8)
+        """Apply directional motion blur using a linear convolution kernel.
+
+        :param scale: Severity in [0.0, 1.0].
+        :param image: Input uint8 image.
+        :param size_levels: Five kernel-size anchors mapped to scales 0–1.
+        :param angle_levels: Five blur-angle (degrees) anchors mapped to scales 0–1.
+        :returns: Motion-blurred uint8 image.
+        """
+        image = np.array(image, dtype=np.uint8)
         size = max(1, int(self._interpolate(scale, size_levels)))
         angle = self._interpolate(scale, angle_levels)
         return cv2.filter2D(image, -1, create_motion_blur_kernel(size, angle))
@@ -106,7 +147,14 @@ class ImagePerturbator:
         img: np.ndarray,
         std_levels: tuple[float, ...] = (0.03, 0.06, 0.12, 0.18, 0.22),
     ) -> np.ndarray:
-        img = np.asarray(img, dtype=np.uint8)
+        """Add zero-mean Gaussian noise to the image.
+
+        :param scale: Severity in [0.0, 1.0].
+        :param img: Input uint8 image.
+        :param std_levels: Five noise standard-deviation anchors (normalised 0–1) mapped to scales 0–1.
+        :returns: Noisy uint8 image clipped to [0, 255].
+        """
+        img = np.array(img, dtype=np.uint8)
         std_dev = self._interpolate(scale, std_levels)
         x = img.astype(np.float32) / 255.0
         noisy = np.clip(x + np.random.normal(size=x.shape, scale=std_dev), 0, 1)
@@ -119,9 +167,17 @@ class ImagePerturbator:
         intensity_levels: tuple[float, ...] = (0.1, 0.2, 0.3, 0.45, 0.65),
         noise_levels: tuple[float, ...] = (0.05, 0.1, 0.2, 0.3, 0.45),
     ) -> np.ndarray:
+        """Blend a noisy white overlay over the image to simulate fog.
+
+        :param scale: Severity in [0.0, 1.0].
+        :param image: Input uint8 image.
+        :param intensity_levels: Five blend-weight anchors mapped to scales 0–1.
+        :param noise_levels: Five fog-noise-amount anchors mapped to scales 0–1.
+        :returns: Fogged uint8 image.
+        """
         intensity = self._interpolate(scale, intensity_levels)
         noise_amount = self._interpolate(scale, noise_levels)
-        image = np.asarray(image, dtype=np.uint8)
+        image = np.array(image, dtype=np.uint8)
         fog_overlay = np.full_like(image, 255, dtype=np.uint8)
         noise = (
             np.random.normal(scale=noise_amount * 255, size=image.shape)
@@ -137,6 +193,15 @@ class ImagePerturbator:
         image: np.ndarray,
         intensity_levels: tuple[float, ...] = (0.15, 0.22, 0.3, 0.45, 0.6),
     ) -> np.ndarray:
+        """Overlay a snow texture from ``snow.png`` with alpha blending.
+
+        :param scale: Severity in [0.0, 1.0].
+        :param image: Input uint8 image.
+        :param intensity_levels: Five overlay-intensity anchors mapped to scales 0–1.
+        :returns: Snow-overlaid uint8 image with reduced saturation.
+        :raises FileNotFoundError: If ``snow.png`` is not found in the assets directory.
+        :raises IOError: If ``snow.png`` cannot be decoded by OpenCV.
+        """
         intensity = self._interpolate(scale, intensity_levels)
         frost_path = self.assets_root / "auxiliary_files" / "snow.png"
         if not frost_path.exists():
@@ -160,6 +225,13 @@ class ImagePerturbator:
         img: np.ndarray,
         factor_levels: tuple[float, ...] = (1.1, 1.2, 1.3, 1.5, 1.7),
     ) -> np.ndarray:
+        """Increase image contrast by scaling pixel values around the mid-grey point.
+
+        :param scale: Severity in [0.0, 1.0].
+        :param img: Input uint8 image.
+        :param factor_levels: Five contrast-factor anchors mapped to scales 0–1.
+        :returns: Contrast-enhanced uint8 image.
+        """
         contrast_factor = self._interpolate(scale, factor_levels)
         mid_level = 127.5
         return np.clip(mid_level + (img - mid_level) * contrast_factor, 0, 255).astype(np.uint8)
@@ -171,6 +243,14 @@ class ImagePerturbator:
         alpha_levels: tuple[int, ...] = (2, 3, 5, 7, 10),
         sigma_levels: tuple[float, ...] = (0.4, 0.75, 0.9, 1.2, 1.5),
     ) -> np.ndarray:
+        """Apply elastic deformation via smooth random displacement fields.
+
+        :param scale: Severity in [0.0, 1.0].
+        :param img: Input uint8 image.
+        :param alpha_levels: Five displacement-amplitude anchors mapped to scales 0–1.
+        :param sigma_levels: Five Gaussian-smoothing-sigma anchors mapped to scales 0–1.
+        :returns: Elastically deformed uint8 image.
+        """
         alpha = self._interpolate(scale, alpha_levels)
         sigma = self._interpolate(scale, sigma_levels)
         dx = cv2.GaussianBlur(np.random.uniform(-1, 1, img.shape[:2]) * alpha, (0, 0), sigma)
@@ -192,6 +272,15 @@ class ImagePerturbator:
         patch_count_levels: tuple[int, ...] = (1, 2, 4, 6, 10),
         coverage_levels: tuple[float, ...] = (0.05, 0.10, 0.15, 0.25, 0.33),
     ) -> np.ndarray:
+        """Black-out random rectangular patches while respecting a per-bbox coverage limit.
+
+        :param scale: Severity in [0.0, 1.0].
+        :param image: Input uint8 image.
+        :param bboxes: Ground-truth bounding boxes as ``[xmin, ymin, xmax, ymax]`` lists.
+        :param patch_count_levels: Five target-patch-count anchors mapped to scales 0–1.
+        :param coverage_levels: Five max-coverage-fraction anchors mapped to scales 0–1.
+        :returns: Image with black rectangular cutouts applied.
+        """
         image = image.copy()
         h, w, _ = image.shape
         target_count = int(self._interpolate(scale, patch_count_levels))
@@ -237,6 +326,12 @@ class ImagePerturbator:
         return image
 
     def false_color_filter(self, scale: float, image: np.ndarray) -> np.ndarray:
+        """Shift the hue channel to produce false-colour artefacts.
+
+        :param scale: Severity in [0.0, 1.0]; maps linearly to a hue shift of 0–180°.
+        :param image: Input uint8 RGB image.
+        :returns: Hue-shifted uint8 RGB image.
+        """
         shift = int(scale * 180)
         hsv = cv2.cvtColor(image, cv2.COLOR_RGB2HSV).astype(np.int32)
         hsv[:, :, 0] = (hsv[:, :, 0] + shift) % 180
@@ -248,6 +343,13 @@ class ImagePerturbator:
         image: np.ndarray,
         severity_levels: tuple[float, ...] = (0.1, 0.2, 0.35, 0.55, 0.85),
     ) -> np.ndarray:
+        """Blend the image towards greyscale by the given severity.
+
+        :param scale: Severity in [0.0, 1.0].
+        :param image: Input uint8 RGB image.
+        :param severity_levels: Five greyscale-blend-weight anchors mapped to scales 0–1.
+        :returns: Partially desaturated uint8 image.
+        """
         severity = self._interpolate(scale, severity_levels)
         gray = cv2.cvtColor(cv2.cvtColor(image, cv2.COLOR_RGB2GRAY), cv2.COLOR_GRAY2RGB)
         return cv2.addWeighted(image, 1 - severity, gray, severity, 0)

@@ -1,22 +1,19 @@
-"""
-Google Gemma vision-language model.
+"""Google Gemma-3-4b-it. Processes images at 896×896; coord scale inferred automatically."""
 
-Gemma uses AutoModelForImageTextToText and the standard HF processor pattern.
-The image placeholder in the message is {"type": "image"} (no embedded PIL),
-with the actual image passed to processor(images=...) separately — this is
-already what HuggingFaceVLM._build_message produces, so no overrides needed.
-
-Default: gemma-3-4b-it. Pass model_id to use a different variant:
-    google/gemma-3-4b-it    ← default (4B)
-    google/gemma-3-12b-it
-    google/gemma-3-27b-it
-"""
-
-from transformers import AutoModelForImageTextToText
-
-from ._hf_vlm import HuggingFaceVLM
+from ._vllm import VLLMInstance
+from PIL import Image
 
 
-class GemmaVLInstance(HuggingFaceVLM):
+class GemmaVLInstance(VLLMInstance):
     MODEL_ID = "google/gemma-3-4b-it"
-    MODEL_CLASS = AutoModelForImageTextToText
+    COORD_SCALE = 896
+
+    def _messages(self, image: Image.Image, prompt: str) -> list[dict]:
+        """Resize image to 896×896 (Gemma's training resolution) before encoding.
+
+        :param image: PIL image for the user turn.
+        :param prompt: Text prompt string.
+        :returns: Single-element list containing the user message dict.
+        """
+        image = image.resize((self.COORD_SCALE, self.COORD_SCALE))
+        return super()._messages(image, prompt)

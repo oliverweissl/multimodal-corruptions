@@ -25,6 +25,13 @@ from config.prompts import HOMOPHONE_MAPPING_PROMPT, SYNONYM_MAPPING_PROMPT
 
 
 def call_ollama(prompt: str, model: str, host: str) -> Optional[str]:
+    """Send a single chat message to a local Ollama instance and return the text response.
+
+    :param prompt: User message content.
+    :param model: Ollama model name (e.g. ``"llama3"``).
+    :param host: Ollama base URL (e.g. ``"http://localhost:11434"``).
+    :returns: Decoded response text, or ``None`` on failure.
+    """
     try:
         resp = requests.post(
             f"{host}/api/chat",
@@ -43,6 +50,11 @@ def call_ollama(prompt: str, model: str, host: str) -> Optional[str]:
 
 
 def extract_json(text: str) -> dict:
+    """Extract the first complete JSON object from a free-form text string.
+
+    :param text: Raw text that may contain a JSON object.
+    :returns: Parsed dict, or an empty dict if no valid JSON object is found.
+    """
     start, end = text.find("{"), text.rfind("}")
     if start == -1 or end == -1:
         return {}
@@ -56,6 +68,16 @@ def generate_mapping(
     labels: list[str], prompt_template: str, model: str, host: str, chunk_size: int,
     max_retries: int = 5,
 ) -> dict:
+    """Generate a label-to-alternatives mapping by querying Ollama in chunks with retries.
+
+    :param labels: List of class-label strings to map.
+    :param prompt_template: Prompt string with a ``{labels}`` placeholder.
+    :param model: Ollama model name.
+    :param host: Ollama base URL.
+    :param chunk_size: Number of labels per LLM call.
+    :param max_retries: Maximum number of retry passes for labels with empty responses.
+    :returns: Dict mapping each label to a list of alternatives.
+    """
     result: dict = {}
     for i in range(0, len(labels), chunk_size):
         chunk = labels[i : i + chunk_size]
@@ -86,6 +108,7 @@ def generate_mapping(
 
 
 def main() -> None:
+    """CLI entry point: generate homophone and synonym mapping files via Ollama."""
     parser = argparse.ArgumentParser(description="Generate homophone/synonym mappings via Ollama")
     parser.add_argument("--model", default=OLLAMA_MODEL, help="Ollama model (default: %(default)s)")
     parser.add_argument("--host", default=OLLAMA_HOST, help="Ollama host (default: %(default)s)")
