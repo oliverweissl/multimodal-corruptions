@@ -43,8 +43,10 @@ Alternatively generate the files with any LLM of your choice — the expected fo
 ```
 
 ## 3) Run Experiments
-
 Run all VLMs × all modes (multi, image, text) across N GPUs. With N > 1 jobs run simultaneously, one per GPU:
+> [!NOTE]  
+> For the default selection of models we tested with ~48GB of VRAM per model.
+> Less VRAM can work for the smaller models, however was not tested.
 ```bash
 bash 03_run_all.sh <N_GPUS>   # e.g. bash 03_run_all.sh 2
 ```
