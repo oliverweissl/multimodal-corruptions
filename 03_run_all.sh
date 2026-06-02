@@ -13,13 +13,13 @@ export VLLM_WORKER_MULTIPROC_METHOD=spawn
 
 declare -A VLM_MODEL_IDS=(
     ["qwen"]="Qwen/Qwen3-VL-4B-Instruct"
-    ["gemma"]="google/gemma-3-4b-it"
+    # ["gemma"]="google/gemma-3-4b-it"
     ["kimi"]="moonshotai/Kimi-VL-A3B-Instruct"
-    ["deepseek"]="deepseek-ai/deepseek-vl2-tiny"
+    # ["deepseek"]="deepseek-ai/deepseek-vl2-tiny"
     ["intern"]="OpenGVLab/InternVL3_5-8B"
 )
 
-VLMS=(qwen gemma deepseek kimi intern)
+VLMS=(intern qwen kimi)
 
 # Shared queue state
 QUEUE_IDX_FILE="/tmp/vlm_run_queue_idx_$$"
