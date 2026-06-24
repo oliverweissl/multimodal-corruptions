@@ -402,6 +402,84 @@ def rq3_validity_table(human_df: pd.DataFrame,
     return pd.DataFrame(rows).set_index("Scene")
 
 
+_GENOME_MODE_LABEL = {
+    ("multimodal", "multi"):  "Multimodal (img+txt)",
+    ("unimodal",   "image"):  "Image-only",
+    ("unimodal",   "text"):   "Text-only",
+}
+
+
+def rq3_validity_by_modality(human_df: pd.DataFrame,
+                              vlm_df:   pd.DataFrame) -> pd.DataFrame:
+    """Validity table grouped by attack modality instead of scene type.
+
+    VLM IoU is broken down by genome_mode (multimodal / image-only / text-only).
+    Human data (accept rate, IoU) is only available for the multimodal row because
+    the human evaluation survey was conducted exclusively on multimodal
+    (variant_a/b) attacks; the source files for image-only and text-only
+    conditions no longer exist, so those rows show '---' for human columns.
+
+    Parameters
+    ----------
+    human_df : output of load_rq3_data()
+    vlm_df   : output of success_only(load_all_results()), all models and modalities
+    """
+    human_bbox   = human_df[~human_df.rejected].groupby("filename")["human_iou"].mean()
+    human_accept = 1.0 - human_df["rejected"].mean()
+    human_str    = _fmt(human_bbox)
+    accept_str   = f"{human_accept:.1%}"
+
+    rows = []
+    for (modality, gmode), label in _GENOME_MODE_LABEL.items():
+        sub = vlm_df[(vlm_df["modality"] == modality) & (vlm_df["genome_mode"] == gmode)]
+        if len(sub) == 0:
+            continue
+        # Human data only exists for multimodal attacks
+        is_multimodal = (modality == "multimodal")
+        rows.append({
+            "Manipulation":                          label,
+            "N (VLM)":                               len(sub),
+            "Accept rate":                           accept_str   if is_multimodal else "---",
+            "Human IoU (bbox, mean $\\pm$ std)":     human_str    if is_multimodal else "---",
+            "VLM IoU (post-attack, mean $\\pm$ std)": f"{sub['final_iou'].mean():.3f} $\\pm$ {sub['final_iou'].std():.3f}",
+        })
+
+    return pd.DataFrame(rows).set_index("Manipulation")
+
+
+def rq3_validity_by_model(human_df: pd.DataFrame,
+                           vlm_df:   pd.DataFrame,
+                           model_label: dict | None = None) -> pd.DataFrame:
+    """Validity table grouped by VLM model.
+
+    Parameters
+    ----------
+    human_df    : output of load_rq3_data()
+    vlm_df      : output of success_only(load_all_results()), all models
+    model_label : optional display-name mapping {raw_name: label}
+    """
+    human_bbox   = human_df[~human_df.rejected].groupby("filename")["human_iou"].mean()
+    human_accept = 1.0 - human_df["rejected"].mean()
+    human_str    = _fmt(human_bbox)
+    accept_str   = f"{human_accept:.1%}"
+
+    if model_label is None:
+        model_label = {}
+
+    rows = []
+    for model in sorted(vlm_df["model"].unique()):
+        sub = vlm_df[vlm_df["model"] == model]
+        rows.append({
+            "Model":                                 model_label.get(model, tex(model)),
+            "N (VLM)":                               len(sub),
+            "Accept rate":                           accept_str,
+            "Human IoU (bbox, mean $\\pm$ std)":     human_str,
+            "VLM IoU (post-attack, mean $\\pm$ std)": f"{sub['final_iou'].mean():.3f} $\\pm$ {sub['final_iou'].std():.3f}",
+        })
+
+    return pd.DataFrame(rows).set_index("Model")
+
+
 def _class_stats(g: pd.DataFrame) -> pd.Series:
     suc = g[g["status"] == "success"]
     return pd.Series({
