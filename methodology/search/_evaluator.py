@@ -1,5 +1,4 @@
 import logging
-import re
 
 # caching_allocator_warmup (added in newer transformers) pre-allocates a large
 # GPU buffer that OOMs when vLLM already occupies most of GPU memory.
@@ -21,6 +20,7 @@ from .utils import (
     compute_mean_iou,
     ensure_rgb,
     extract_json_array,
+    extract_prompt_objects,
     extract_target_objects,
 )
 
@@ -147,10 +147,8 @@ class FitnessEvaluator:
 
     @staticmethod
     def _extract_object_list(prompt: str) -> list[str]:
-        match = re.search(r'objects "(.*?)"', prompt)
-        if match:
-            return [item.strip() for item in match.group(1).split(",")]
-        return [prompt]
+        objects = extract_prompt_objects(prompt)
+        return objects if objects else [prompt]
 
     def _batch_embed(
         self, labels_a: list[str], labels_b_list: list[list[str]]

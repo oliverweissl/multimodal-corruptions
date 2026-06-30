@@ -3,6 +3,8 @@ import json
 import re
 from typing import Optional
 
+from prompt_utils import extract_prompt_objects
+
 
 def _bbox_from_dict(d: dict) -> Optional[list]:
     """Convert a coord-keyed dict to a ``[x1, y1, x2, y2]`` list.
@@ -74,17 +76,14 @@ def extract_json_array(pred_str: str) -> list:
 
 
 def extract_target_objects(prompt: str) -> list[str]:
-    """Parse the ``objects "..."`` segment of a prompt and return normalised label strings.
+    """Parse the object-label segment of a prompt and return normalised label strings.
 
-    :param prompt: Prompt string possibly containing an ``objects "..."`` clause.
-    :returns: List of normalised label strings, or an empty list if the pattern is absent.
+    :param prompt: Prompt string possibly containing a quoted object-label clause.
+    :returns: List of normalised label strings, or an empty list if the clause is absent.
     """
     if not prompt:
         return []
-    match = re.search(r'objects "(.*?)"', prompt)
-    if match:
-        return [_normalize_label(x) for x in match.group(1).split(",")]
-    return []
+    return [_normalize_label(x) for x in extract_prompt_objects(prompt)]
 
 
 def _normalize_label(text: str) -> str:

@@ -13,10 +13,10 @@ export VLLM_WORKER_MULTIPROC_METHOD=spawn
 
 declare -A VLM_MODEL_IDS=(
     ["qwen"]="Qwen/Qwen3-VL-4B-Instruct"
-    # ["gemma"]="google/gemma-3-4b-it"
     ["kimi"]="moonshotai/Kimi-VL-A3B-Instruct"
-    # ["deepseek"]="deepseek-ai/deepseek-vl2-tiny"
     ["intern"]="OpenGVLab/InternVL3_5-8B"
+    ["gemma"]="google/gemma-3-4b-it"
+    ["deepseek"]="deepseek-ai/deepseek-vl2-tiny"
 )
 
 VLMS=(intern qwen kimi)
@@ -61,7 +61,7 @@ worker() {
         CUDA_VISIBLE_DEVICES="$gpu" vllm serve "$model_id" \
             --port "$port" \
             --gpu-memory-utilization 0.8 \
-            --enforce-eager --trust-remote-code --max-model-len 4096 \
+            --max-num-seqs 1 --trust-remote-code --max-model-len 4096 \
             > "logs/${vlm}_server.log" 2>&1 &
         local server_pid=$!
 
@@ -91,7 +91,7 @@ fuser -k 8699/tcp 2>/dev/null || true; sleep 1
 CUDA_VISIBLE_DEVICES=0 vllm serve "Qwen/Qwen3-Embedding-0.6B" \
     --port 8699 \
     --gpu-memory-utilization 0.1 \
-    --enforce-eager --trust-remote-code --max-model-len 4096 \
+    --max-num-seqs 1 --trust-remote-code --max-model-len 4096 \
     > logs/embedding_server.log 2>&1 &
 EMB_PID=$!
 until curl -sf http://localhost:8699/health > /dev/null 2>&1; do

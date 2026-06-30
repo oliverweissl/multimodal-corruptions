@@ -1,6 +1,5 @@
 import json
 import random
-import re
 import string
 
 from nltk.corpus import stopwords
@@ -10,7 +9,9 @@ from string import ascii_letters
 from config import paths as _paths
 from config import prompts as _prompts
 from config.experiment import MIN_PERTURBATION_SCALE
+from prompt_utils import extract_prompt_object_text, replace_prompt_object_text
 
+import re
 import unicodedata
 
 class TextPerturbator:
@@ -23,8 +24,8 @@ class TextPerturbator:
 
         self.homoglyphs = self._get_latin_homoglyph_dict()
 
-        self.invisible_chars = set([ch for codepoint in range(0x110000) if unicodedata.category(ch:=chr(codepoint)) in {"Cf", "Mn"}])
-        self.stop_words = set(stopwords.words("english"))
+        self.invisible_chars = list(set([ch for codepoint in range(0x110000) if unicodedata.category(ch:=chr(codepoint)) in {"Cf", "Mn"}]))
+        self.stop_words = list(set(stopwords.words("english")))
 
         with open(synonym_file, "r", encoding="utf-8") as f:
             self.synonym_map = json.load(f)
@@ -113,7 +114,7 @@ class TextPerturbator:
         return out
 
     def process_prompt(self, prompt: str, attack_type: str, scale: float = 0.0, min_scale: float = MIN_PERTURBATION_SCALE) -> str:
-        """Unified processor: extracts the 'objects' substring or modifies the full prompt.
+        """Unified processor: extracts the object-label substring or modifies the full prompt.
 
         :param prompt: Original prompt string.
         :param attack_type: Perturbation type identifier (e.g. 'homophone', 'fragmentation').
@@ -127,13 +128,12 @@ class TextPerturbator:
         if attack_type == "reinforcement" and scale <= 1 / 6:
             return prompt
 
-        match = re.search(r'objects "(.*?)"', prompt)
-        full_object_str = match.group(1) if match else None
+        full_object_str = extract_prompt_object_text(prompt)
 
-        # Targeted object attacks require the objects "..." pattern
+        # Targeted object attacks operate on the quoted object list when present.
         if attack_type in ["fragmentation", "character_noise", "homophone", "synonym"]:
             if not full_object_str:
-                return 'Error: Input format mismatch (objects "..." not found).'
+                return prompt
 
             res = full_object_str
             if attack_type == "fragmentation":
@@ -145,13 +145,13 @@ class TextPerturbator:
             elif attack_type == "synonym":
                 res = self.synonym_substitution(full_object_str, scale=scale)
 
-            return prompt.replace(f'"{full_object_str}"', f'"{res}"')
+            return replace_prompt_object_text(prompt, res) or prompt
 
         # ATA targets objects if present, otherwise full prompt
         elif attack_type == "ata_saliency":
-            if match:
+            if full_object_str is not None:
                 res = self.ata_saliency(full_object_str, scale=scale)
-                return prompt.replace(f'"{full_object_str}"', f'"{res}"')
+                return replace_prompt_object_text(prompt, res) or prompt
             else:
                 return self.ata_saliency(prompt, scale=scale)
 

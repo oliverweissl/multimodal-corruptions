@@ -251,7 +251,7 @@ def _bbox_iou(a: list, b: list) -> float:
 
 
 def _parse_prompt_labels(prompt: str) -> list[str]:
-    m = re.search(r'objects\s+"(.*?)"', prompt)
+    m = re.search(r'object(?:\s*\(s\)|s)?\s+"(.*?)"', prompt, flags=re.IGNORECASE)
     if not m:
         m = re.search(r'"([^"]+)"', prompt)
     return [l.strip() for l in m.group(1).split(",")] if m else []
